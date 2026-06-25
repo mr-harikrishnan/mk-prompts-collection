@@ -54,6 +54,7 @@ export default function AdminDashboard({
   const [isFormCollapsed, setIsFormCollapsed] = useState(true);
   const [editingPromptId, setEditingPromptId] = useState<string | null>(null);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [isLogoutConfirmOpen, setIsLogoutConfirmOpen] = useState(false);
 
   // Prevent background scroll when mobile sidebar drawer is open
   useEffect(() => {
@@ -138,67 +139,17 @@ export default function AdminDashboard({
     return parseFloat((sum / feedbacks.length).toFixed(1));
   }, [feedbacks]);
 
-  // Handle Base64 file conversions
+  // Handle Base64 file conversions (local preview only)
   const handleImageFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
-      reader.onloadend = async () => {
+      reader.onloadend = () => {
         const base64Data = reader.result as string;
-        setIsUploadingImage(true);
-        try {
-          const res = await fetch("/api/upload", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({ image: base64Data }),
-          });
-          const data = await res.json();
-          if (data.success) {
-            setNewImageBase64(data.secure_url);
-          } else {
-            alert("Image upload failed: " + data.message);
-          }
-        } catch (error) {
-          console.error("Upload error:", error);
-          alert("Image upload failed. Please try again.");
-        } finally {
-          setIsUploadingImage(false);
-        }
+        setNewImageBase64(base64Data);
       };
       reader.readAsDataURL(file);
     }
-  };
-
-  // Add custom variable to builder
-  const handleAddVariable = () => {
-    if (!varNameInput.trim() || !varLabelInput.trim()) return;
-    const sanitizedName = varNameInput.trim().toLowerCase().replace(/\s+/g, "_");
-    
-    // Check limit of 5 variables
-    if (variableFields.length >= 5) {
-      alert("You can configure up to 5 variables per prompt template.");
-      return;
-    }
-
-    setVariableFields((prev) => [
-      ...prev,
-      {
-        name: sanitizedName,
-        label: varLabelInput.trim(),
-        defaultValue: varDefaultInput.trim() || "N/A",
-      },
-    ]);
-
-    setVarNameInput("");
-    setVarLabelInput("");
-    setVarDefaultInput("");
-  };
-
-  // Remove a variable builder item
-  const handleRemoveVariable = (index: number) => {
-    setVariableFields((prev) => prev.filter((_, i) => i !== index));
   };
 
   // Edit Prompt State triggers
@@ -217,6 +168,7 @@ export default function AdminDashboard({
   const handleCancelEdit = () => {
     setEditingPromptId(null);
     setNewTitle("");
+    setNewCategory("Love & Couples");
     setNewShortDesc("");
     setNewLongDesc("");
     setNewTemplate("");
@@ -226,44 +178,73 @@ export default function AdminDashboard({
   };
 
   // Add/Edit Prompt Submission
-  const handlePromptSubmit = (e: React.FormEvent) => {
+  const handlePromptSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newTitle.trim() || !newShortDesc.trim() || !newTemplate.trim() || !newImageBase64) {
       alert("Please populate all required fields and upload an image illustration.");
       return;
     }
 
-    if (editingPromptId) {
-      const original = prompts.find((p) => p.id === editingPromptId);
-      onUpdatePrompt({
-        id: editingPromptId,
-        title: newTitle.trim(),
-        category: newCategory,
-        shortDesc: newShortDesc.trim(),
-        longDesc: newLongDesc.trim() || newShortDesc.trim(),
-        template: newTemplate.trim(),
-        image: newImageBase64,
-        variables: variableFields,
-        tags: original?.tags || [newCategory.split(" & ")[0] || "Custom", "Updated"],
-        copyCount: original?.copyCount || 0,
-        stars: original?.stars || 5.0,
-        totalReviews: original?.totalReviews || 0,
-      });
-    } else {
-      onAddPrompt({
-        title: newTitle.trim(),
-        category: newCategory,
-        shortDesc: newShortDesc.trim(),
-        longDesc: newLongDesc.trim() || newShortDesc.trim(),
-        template: newTemplate.trim(),
-        image: newImageBase64,
-        variables: variableFields,
-        tags: [newCategory.split(" & ")[0] || "Custom", "New", "Aesthetic"],
-      });
-    }
+    let finalImageUrl = newImageBase64;
+    setIsUploadingImage(true);
 
-    // Reset fields
-    handleCancelEdit();
+    try {
+      if (newImageBase64.startsWith("data:")) {
+        // Upload image to Cloudinary
+        const res = await fetch("/api/upload", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ image: newImageBase64 }),
+        });
+        const data = await res.json();
+        if (data.success) {
+          finalImageUrl = data.secure_url;
+        } else {
+          alert("Image upload failed: " + data.message);
+          setIsUploadingImage(false);
+          return;
+        }
+      }
+
+      if (editingPromptId) {
+        const original = prompts.find((p) => p.id === editingPromptId);
+        onUpdatePrompt({
+          id: editingPromptId,
+          title: newTitle.trim(),
+          category: newCategory,
+          shortDesc: newShortDesc.trim(),
+          longDesc: newLongDesc.trim() || newShortDesc.trim(),
+          template: newTemplate.trim(),
+          image: finalImageUrl,
+          variables: [],
+          tags: original?.tags || [newCategory.split(" & ")[0] || "Custom", "Updated"],
+          copyCount: original?.copyCount || 0,
+          stars: original?.stars || 5.0,
+          totalReviews: original?.totalReviews || 0,
+        });
+      } else {
+        onAddPrompt({
+          title: newTitle.trim(),
+          category: newCategory,
+          shortDesc: newShortDesc.trim(),
+          longDesc: newLongDesc.trim() || newShortDesc.trim(),
+          template: newTemplate.trim(),
+          image: finalImageUrl,
+          variables: [],
+          tags: [newCategory.split(" & ")[0] || "Custom", "New", "Aesthetic"],
+        });
+      }
+
+      // Reset fields
+      handleCancelEdit();
+    } catch (err) {
+      console.error("Submit prompt error:", err);
+      alert("Failed to save prompt. Please try again.");
+    } finally {
+      setIsUploadingImage(false);
+    }
   };
 
   // Settings Save Submit
@@ -381,8 +362,7 @@ export default function AdminDashboard({
 
         <button
           onClick={() => {
-            onLogout();
-            onSidebarClose();
+            setIsLogoutConfirmOpen(true);
           }}
           className="mt-10 flex items-center gap-3 px-4 py-3 text-rose-600 hover:bg-rose-50 rounded-2xl text-xs font-bold transition-colors cursor-pointer"
         >
@@ -593,8 +573,13 @@ export default function AdminDashboard({
             {/* Collapsible Add Form */}
             {!isFormCollapsed && (
               <form onSubmit={handlePromptSubmit} className="p-6 bg-slate-50 border border-slate-200/40 rounded-3xl space-y-6">
-                <h3 className="text-sm font-extrabold text-slate-850">
-                  {editingPromptId ? "Edit AI Prompt" : "Add New AI Prompt"}
+                <h3 className="text-sm font-extrabold text-slate-850 flex items-center gap-2">
+                  <span>{editingPromptId ? "Edit AI Prompt" : "Add New AI Prompt"}</span>
+                  {editingPromptId && (prompts.find(p => p.id === editingPromptId)?.promptKey) && (
+                    <span className="px-2 py-0.5 bg-slate-900 text-orange-400 font-mono text-[10px] font-black rounded-md tracking-wider">
+                      {prompts.find(p => p.id === editingPromptId)?.promptKey}
+                    </span>
+                  )}
                 </h3>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
@@ -639,15 +624,35 @@ export default function AdminDashboard({
                       onChange={(e) => setNewShortDesc(e.target.value)}
                       className="px-3.5 py-2.5 bg-white border border-slate-200/70 rounded-xl text-slate-800 text-xs font-medium focus:outline-none focus:border-orange-500 transition-colors"
                     />
-                  </div>
-
-                  {/* Image uploader (Base64 URL) */}
+                  </div>                  {/* Image uploader (Base64 URL) */}
                   <div className="flex flex-col justify-end">
                     <label className="text-xs font-semibold text-slate-700 mb-1.5 flex items-center gap-1">
                       Illustration Artwork *
-                      {newImageBase64 && <span className="text-[10px] text-emerald-500 font-bold">(Uploaded)</span>}
+                      {newImageBase64 && (
+                        <span className="text-[10px] text-emerald-500 font-bold">
+                          {newImageBase64.startsWith("data:") ? "(Selected locally)" : "(Uploaded to Cloudinary)"}
+                        </span>
+                      )}
                     </label>
-                    <div className="relative w-full">
+                    <div className="relative w-full flex flex-col gap-3">
+                      {newImageBase64 && (
+                        <div className="relative w-24 h-24 sm:w-32 sm:h-32 rounded-xl overflow-hidden border border-slate-200 shadow-sm bg-slate-100 flex items-center justify-center group">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={newImageBase64}
+                            alt="Local Preview"
+                            className="w-full h-full object-cover"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setNewImageBase64("")}
+                            className="absolute top-1 right-1 w-6 h-6 rounded-full bg-rose-600 hover:bg-rose-500 text-white flex items-center justify-center shadow-md transition-colors cursor-pointer"
+                            title="Remove Image"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </div>
+                      )}
                       <input
                         type="file"
                         accept="image/*"
@@ -660,9 +665,7 @@ export default function AdminDashboard({
                         className="w-full flex items-center justify-center gap-2 px-3.5 py-2.5 bg-white border border-dashed border-slate-200/80 rounded-xl hover:border-slate-350 hover:bg-slate-50 transition-colors cursor-pointer text-xs font-semibold text-slate-600"
                       >
                         <Upload className="w-4 h-4 text-slate-400" />
-                        {isUploadingImage
-                          ? "Uploading to Cloudinary..."
-                          : newImageBase64
+                        {newImageBase64
                           ? "Change Illustration File"
                           : "Upload PNG/JPG File"}
                       </label>
@@ -696,81 +699,8 @@ export default function AdminDashboard({
                     className="px-3.5 py-2.5 bg-white border border-slate-200/70 rounded-xl text-slate-800 font-mono text-xs focus:outline-none focus:border-orange-500 transition-colors"
                   />
                   <p className="text-[10px] text-slate-450 mt-1.5 font-medium leading-normal">
-                    Write variable placeholders enclosed in curly brackets (e.g. {"{location}"}). Ensure you register these variables in the question builder below.
+                    Write variable placeholders enclosed in curly brackets (e.g. {"{location}"}). These will be custom-tailored dynamically by MK AI Prompt Consultant.
                   </p>
-                </div>
-
-                {/* CUSTOM VARIABLES QUESTION BUILDER */}
-                <div className="p-4 bg-white border border-slate-200/60 rounded-2xl space-y-4">
-                  <div>
-                    <h4 className="text-xs font-extrabold text-slate-850">Custom Variable Configurator</h4>
-                    <p className="text-[10px] text-slate-400 mt-0.5">Map template placeholders to custom input form elements (Max 5).</p>
-                  </div>
-
-                  {/* List of active variables configured */}
-                  {variableFields.length > 0 && (
-                    <div className="flex flex-wrap gap-2 p-3 bg-slate-50 border border-slate-150 rounded-xl">
-                      {variableFields.map((field, idx) => (
-                        <div
-                          key={field.name}
-                          className="flex items-center gap-1.5 px-3 py-1 bg-white border border-slate-200/60 rounded-full text-[10px] font-bold text-slate-700"
-                        >
-                          <span className="text-blue-500">{"{" + field.name + "}"}</span>
-                          <span className="text-slate-400 font-normal">({field.label})</span>
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveVariable(idx)}
-                            className="text-rose-500 hover:text-rose-700 ml-1 font-extrabold cursor-pointer"
-                          >
-                            ×
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Builder Form Inputs */}
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <div className="flex flex-col">
-                      <label className="text-[10px] font-bold text-slate-400 uppercase mb-1">Variable Name</label>
-                      <input
-                        type="text"
-                        placeholder="e.g. location"
-                        value={varNameInput}
-                        onChange={(e) => setVarNameInput(e.target.value)}
-                        className="px-3.5 py-2 bg-slate-50 border border-slate-200/50 rounded-xl text-slate-850 text-xs focus:outline-none"
-                      />
-                    </div>
-                    <div className="flex flex-col">
-                      <label className="text-[10px] font-bold text-slate-400 uppercase mb-1">Field Label</label>
-                      <input
-                        type="text"
-                        placeholder="e.g. City Location"
-                        value={varLabelInput}
-                        onChange={(e) => setVarLabelInput(e.target.value)}
-                        className="px-3.5 py-2 bg-slate-50 border border-slate-200/50 rounded-xl text-slate-850 text-xs focus:outline-none"
-                      />
-                    </div>
-                    <div className="flex flex-col justify-end">
-                      <label className="text-[10px] font-bold text-slate-400 uppercase mb-1">Default Fallback</label>
-                      <div className="flex gap-2">
-                        <input
-                          type="text"
-                          placeholder="e.g. Paris"
-                          value={varDefaultInput}
-                          onChange={(e) => setVarDefaultInput(e.target.value)}
-                          className="flex-1 px-3.5 py-2 bg-slate-50 border border-slate-200/50 rounded-xl text-slate-850 text-xs focus:outline-none"
-                        />
-                        <button
-                          type="button"
-                          onClick={handleAddVariable}
-                          className="px-3 bg-slate-900 text-white rounded-xl font-bold text-xs hover:bg-slate-850 cursor-pointer"
-                        >
-                          Add
-                        </button>
-                      </div>
-                    </div>
-                  </div>
                 </div>
 
                 {/* Submit / Cancel Form buttons */}
@@ -786,9 +716,18 @@ export default function AdminDashboard({
                   )}
                   <button
                     type="submit"
-                    className="flex-1 py-4 bg-orange-500 hover:bg-orange-600 text-white font-bold text-xs rounded-2xl shadow-sm hover:shadow-orange-500/10 cursor-pointer transition-colors active:scale-[0.99]"
+                    disabled={isUploadingImage}
+                    className={`flex-1 py-4 text-white font-bold text-xs rounded-2xl shadow-sm transition-colors active:scale-[0.99] ${
+                      isUploadingImage
+                        ? "bg-slate-400 cursor-not-allowed"
+                        : "bg-orange-500 hover:bg-orange-600 hover:shadow-orange-500/10 cursor-pointer"
+                    }`}
                   >
-                    {editingPromptId ? "Save Prompt Changes" : "Create Showcase Prompt"}
+                    {isUploadingImage
+                      ? "Uploading Artwork & Saving..."
+                      : editingPromptId
+                      ? "Save Prompt Changes"
+                      : "Create Showcase Prompt"}
                   </button>
                 </div>
               </form>
@@ -810,9 +749,16 @@ export default function AdminDashboard({
                         className="w-12 h-12 rounded-xl object-cover border border-slate-200/50 shrink-0"
                       />
                       <div>
-                        <h4 className="text-xs font-bold text-slate-850">{prompt.title}</h4>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <h4 className="text-xs font-bold text-slate-850">{prompt.title}</h4>
+                          {prompt.promptKey && (
+                            <span className="px-1.5 py-0.5 bg-slate-900 text-orange-400 font-mono text-[9px] font-black tracking-widest rounded-md uppercase">
+                              {prompt.promptKey}
+                            </span>
+                          )}
+                        </div>
                         <p className="text-[10px] text-slate-450 mt-0.5">
-                          {prompt.category} • {(prompt.variables || []).length} parameters • {prompt.copyCount} copies
+                          {prompt.category} • {prompt.copyCount} copies
                         </p>
                       </div>
                     </div>
@@ -1017,6 +963,45 @@ export default function AdminDashboard({
         )}
 
       </main>
+
+      {/* Admin Logout Confirmation Modal */}
+      {isLogoutConfirmOpen && (
+        <div className="fixed inset-0 z-55 flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div
+            onClick={() => setIsLogoutConfirmOpen(false)}
+            className="absolute inset-0 bg-slate-900/40 backdrop-blur-xs"
+          />
+          <div className="relative bg-white border border-slate-200 rounded-3xl p-6 shadow-2xl max-w-sm w-full text-center space-y-4 z-10 animate-in fade-in zoom-in-95 duration-150">
+            <div className="w-12 h-12 rounded-full bg-rose-50 text-rose-500 flex items-center justify-center mx-auto">
+              <LogOut className="w-5 h-5" />
+            </div>
+            <h3 className="text-base font-extrabold text-slate-900">Confirm Logout</h3>
+            <p className="text-slate-500 text-xs leading-normal">
+              Are you sure you want to log out from the Creator Controls? You will need to enter the access key to modify prompts.
+            </p>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => setIsLogoutConfirmOpen(false)}
+                className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsLogoutConfirmOpen(false);
+                  onLogout();
+                  onSidebarClose();
+                }}
+                className="flex-1 py-2.5 bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs rounded-xl transition-colors cursor-pointer"
+              >
+                Logout
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

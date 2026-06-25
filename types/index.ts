@@ -17,6 +17,7 @@ export interface Prompt {
   copyCount: number;
   stars: number; // calculated average star rating
   totalReviews: number;
+  promptKey?: string;
 }
 
 export interface Feedback {

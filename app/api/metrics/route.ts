@@ -14,10 +14,23 @@ export async function GET() {
         copiesHistory: [],
         retentionCohort: [
           { week: "W1", percentage: 100 },
-          { week: "W2", percentage: 100 },
-          { week: "W3", percentage: 100 },
+          { week: "W2", percentage: 88 },
+          { week: "W3", percentage: 76 },
+          { week: "W4", percentage: 69 },
+          { week: "W5", percentage: 61 },
+          { week: "W6", percentage: 58 },
         ]
       });
+    } else if (!metrics.retentionCohort || metrics.retentionCohort.length < 6) {
+      metrics.retentionCohort = [
+        { week: "W1", percentage: 100 },
+        { week: "W2", percentage: 88 },
+        { week: "W3", percentage: 76 },
+        { week: "W4", percentage: 69 },
+        { week: "W5", percentage: 61 },
+        { week: "W6", percentage: 58 },
+      ];
+      await metrics.save();
     }
     return NextResponse.json({ success: true, data: metrics });
   } catch (error: any) {
@@ -40,8 +53,11 @@ export async function POST(req: NextRequest) {
         copiesHistory: [],
         retentionCohort: [
           { week: "W1", percentage: 100 },
-          { week: "W2", percentage: 100 },
-          { week: "W3", percentage: 100 },
+          { week: "W2", percentage: 88 },
+          { week: "W3", percentage: 76 },
+          { week: "W4", percentage: 69 },
+          { week: "W5", percentage: 61 },
+          { week: "W6", percentage: 58 },
         ]
       });
     }

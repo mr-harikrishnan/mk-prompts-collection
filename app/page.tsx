@@ -108,12 +108,12 @@ export default function Home() {
   useEffect(() => {
     const handleHashChange = () => {
       const hash = window.location.hash;
-      if (isAdminLoggedIn) {
-        if (hash !== "#dashboard") {
-          setIsAdminLoggedIn(false);
-          setActiveView("showcase");
-        } else {
+      if (hash === "#dashboard") {
+        if (isAdminLoggedIn) {
           setActiveView("dashboard");
+        } else {
+          setActiveView("showcase");
+          window.history.replaceState(null, "", window.location.pathname + window.location.search);
         }
       } else {
         setActiveView("showcase");
@@ -133,7 +133,7 @@ export default function Home() {
       window.removeEventListener("hashchange", handleHashChange);
       clearTimeout(initialSyncTimer);
     };
-  }, [isAdminLoggedIn, setIsAdminLoggedIn]);
+  }, [isAdminLoggedIn]);
 
   // Update hash when activeView changes
   useEffect(() => {
@@ -147,18 +147,6 @@ export default function Home() {
       }
     }
   }, [activeView, isAdminLoggedIn]);
-
-  // Force activeView and hash to dashboard if logged in as admin
-  useEffect(() => {
-    if (isMounted && isAdminLoggedIn) {
-      setTimeout(() => {
-        setActiveView("dashboard");
-      }, 0);
-      if (window.location.hash !== "#dashboard") {
-        window.location.hash = "dashboard";
-      }
-    }
-  }, [isMounted, isAdminLoggedIn]);
 
   // Prevent background scroll when any modal is open
   useEffect(() => {
@@ -434,6 +422,8 @@ export default function Home() {
           settings={settings}
           showAdminMenu={activeView === "dashboard" && isAdminLoggedIn}
           onOpenAdminSidebar={() => setIsAdminSidebarOpen(true)}
+          activeView={activeView}
+          onBackToShowcase={() => setActiveView("showcase")}
         />
 
         {activeView === "showcase" || !isAdminLoggedIn ? (
@@ -467,7 +457,13 @@ export default function Home() {
                 setSelectedPrompt(prompt);
                 setIsDetailsOpen(true);
               }}
-              onTriggerLogin={() => setIsLoginOpen(true)}
+              onTriggerLogin={() => {
+                if (isAdminLoggedIn) {
+                  setActiveView("dashboard");
+                } else {
+                  setIsLoginOpen(true);
+                }
+              }}
               isLoading={isLoading}
             />
           )
@@ -515,14 +511,18 @@ export default function Home() {
         <footer className="w-full text-slate-400 text-xs border-t border-slate-200/50 mt-auto py-6">
           <div className="max-w-7xl mx-auto px-6 flex flex-col sm:flex-row items-center justify-between gap-4">
             <span className="select-none">© {new Date().getFullYear()} {settings.pageName} • Crafted with Apple Design Principles</span>
-            {!isAdminLoggedIn && (
-              <button
-                onClick={() => setIsLoginOpen(true)}
-                className="hover:text-slate-700 font-bold transition-colors cursor-pointer"
-              >
-                Admin Access
-              </button>
-            )}
+            <button
+              onClick={() => {
+                if (isAdminLoggedIn) {
+                  setActiveView("dashboard");
+                } else {
+                  setIsLoginOpen(true);
+                }
+              }}
+              className="hover:text-slate-700 font-bold transition-colors cursor-pointer"
+            >
+              {isAdminLoggedIn ? "Admin Controls" : "Admin Access"}
+            </button>
           </div>
         </footer>
       </div>

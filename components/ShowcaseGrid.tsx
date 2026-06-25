@@ -65,8 +65,8 @@ export default function ShowcaseGrid({ prompts, onSelectPrompt, onTriggerLogin, 
       // 1. Category filter
       if (selectedCategory !== "All Collection") {
         if (selectedCategory === "Customizable") {
-          // Customizable checks if there are variables configured
-          if (!prompt.variables || prompt.variables.length === 0) return false;
+          // All prompts with templates are dynamically customizable via the AI Prompt Consultant
+          if (!prompt.template) return false;
         } else if (prompt.category !== selectedCategory) {
           return false;
         }
@@ -82,8 +82,9 @@ export default function ShowcaseGrid({ prompts, onSelectPrompt, onTriggerLogin, 
       const matchTags = (prompt.tags || []).some((tag) => (tag || "").toLowerCase().includes(query));
       const matchTemplate = (prompt.template || "").toLowerCase().includes(query);
       const matchVariables = (prompt.variables || []).some((v) => (v.name || "").toLowerCase().includes(query) || (v.label || "").toLowerCase().includes(query));
+      const matchKey = (prompt.promptKey || "").toLowerCase().includes(query);
 
-      return matchTitle || matchCategory || matchDesc || matchTags || matchTemplate || matchVariables;
+      return matchTitle || matchCategory || matchDesc || matchTags || matchTemplate || matchVariables || matchKey;
     });
   }, [prompts, debouncedSearchQuery, selectedCategory]);
 
@@ -171,6 +172,13 @@ export default function ShowcaseGrid({ prompts, onSelectPrompt, onTriggerLogin, 
                 <span className="absolute top-4 left-4 bg-white/90 backdrop-blur-md border border-slate-200/40 text-slate-800 text-[10px] font-bold px-2.5 py-1 rounded-full shadow-sm">
                   {prompt.category}
                 </span>
+
+                {/* Unique Key Overlay */}
+                {prompt.promptKey && (
+                  <span className="absolute top-4 right-4 bg-slate-900/95 backdrop-blur-md text-orange-400 text-[10px] font-mono font-black tracking-widest px-2.5 py-1 rounded-full shadow-sm">
+                    {prompt.promptKey}
+                  </span>
+                )}
 
                 {/* Copies Counter Overlay */}
                 <span className="absolute bottom-4 right-4 flex items-center gap-1 bg-slate-950/80 backdrop-blur-sm text-white text-[10px] font-bold px-2.5 py-1 rounded-full shadow-sm">

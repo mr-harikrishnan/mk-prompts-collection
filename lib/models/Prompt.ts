@@ -18,6 +18,7 @@ export interface IPrompt extends Document {
   stars: number;
   totalReviews: number;
   createdAt: Date;
+  promptKey?: string;
 }
 
 const PromptVariableSchema = new Schema({
@@ -40,6 +41,7 @@ const PromptSchema = new Schema<IPrompt>({
   stars: { type: Number, default: 5.0 },
   totalReviews: { type: Number, default: 0 },
   createdAt: { type: Date, default: Date.now },
+  promptKey: { type: String, unique: true, sparse: true },
 });
 
 export default mongoose.models.Prompt || mongoose.model<IPrompt>("Prompt", PromptSchema);
