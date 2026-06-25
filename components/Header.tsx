@@ -1,23 +1,37 @@
 "use client";
 
 import React from "react";
-import { Instagram } from "lucide-react";
+import { Instagram, Menu } from "lucide-react";
 import { CreatorSettings } from "../types";
 
 interface HeaderProps {
   settings: CreatorSettings;
+  showAdminMenu?: boolean;
+  onOpenAdminSidebar?: () => void;
 }
 
 export default function Header({
   settings,
+  showAdminMenu = false,
+  onOpenAdminSidebar,
 }: HeaderProps) {
   return (
     <header className="sticky top-0 z-30 w-full bg-white/80 backdrop-blur-md border-b border-slate-200/60 px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-4">
-      {/* Brand Title Only */}
-      <div>
+      {/* Brand Title Row */}
+      <div className="flex items-center justify-between w-full sm:w-auto">
         <h1 className="text-base font-extrabold text-slate-900 leading-tight tracking-wider uppercase">
           {settings.pageName}
         </h1>
+        {showAdminMenu && (
+          <button
+            type="button"
+            onClick={onOpenAdminSidebar}
+            className="md:hidden flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 border border-slate-200/60 hover:bg-slate-100 rounded-xl text-slate-700 font-bold text-[10px] uppercase tracking-wide cursor-pointer transition-colors"
+          >
+            <Menu className="w-3.5 h-3.5 text-orange-500" />
+            Controls
+          </button>
+        )}
       </div>
 
       {/* Instagram Tracker Badge (Far Right / End) */}

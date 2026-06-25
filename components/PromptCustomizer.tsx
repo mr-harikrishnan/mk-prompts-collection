@@ -154,134 +154,137 @@ export default function PromptCustomizer({
       />
 
       {/* Modal Container */}
-      <div className="relative w-full max-w-5xl bg-white rounded-3xl border border-slate-200/80 shadow-2xl overflow-hidden flex flex-col md:flex-row h-[90vh] md:h-[80vh] z-10 animate-in fade-in zoom-in-95 duration-200">
+      <div className="relative w-full max-w-5xl bg-white rounded-3xl border border-slate-200/80 shadow-2xl overflow-hidden flex flex-col max-h-[90vh] md:max-h-[95vh] md:h-[80vh] z-10 animate-in fade-in zoom-in-95 duration-200">
         
         {/* Close Button */}
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-250 border border-slate-200/60 flex items-center justify-center text-slate-500 hover:text-slate-800 transition-colors duration-150 cursor-pointer z-20"
+          className="absolute top-4 right-4 w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-250 border border-slate-200/60 flex items-center justify-center text-slate-500 hover:text-slate-800 transition-colors duration-150 cursor-pointer z-30"
         >
           <X className="w-4 h-4" />
         </button>
 
-        {/* LEFT COLUMN: Chatbot Assistant and Input Fields Form */}
-        <div className="w-full md:w-[55%] flex flex-col border-b md:border-b-0 md:border-r border-slate-200/60 h-[50%] md:h-full bg-slate-50/50">
-          {/* Assistant Header */}
-          <div className="px-6 py-4 bg-white border-b border-slate-200/60 flex items-center gap-2.5 shrink-0">
-            <div className="w-8 h-8 rounded-full bg-orange-100 flex items-center justify-center text-orange-600">
-              <Bot className="w-4.5 h-4.5" />
+        {/* Scrollable Container Wrapper for mobile view */}
+        <div className="flex-1 overflow-y-auto md:overflow-hidden flex flex-col md:flex-row w-full h-full">
+          {/* LEFT COLUMN: Chatbot Assistant and Input Fields Form */}
+          <div className="w-full md:w-[55%] flex flex-col border-b md:border-b-0 md:border-r border-slate-200/60 h-auto md:h-full bg-slate-50/50">
+            {/* Assistant Header */}
+            <div className="px-6 py-4 bg-white border-b border-slate-200/60 flex items-center gap-2.5 shrink-0">
+              <div className="w-8 h-8 rounded-full bg-orange-100 flex items-center justify-center text-orange-600">
+                <Bot className="w-4.5 h-4.5" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-slate-800 leading-none">
+                  MK AI Prompt Assistant
+                </h3>
+                <span className="text-[10px] font-semibold text-emerald-500 flex items-center gap-1 mt-0.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  Active Guide
+                </span>
+              </div>
             </div>
-            <div>
-              <h3 className="text-sm font-bold text-slate-800 leading-none">
-                MK AI Prompt Assistant
-              </h3>
-              <span className="text-[10px] font-semibold text-emerald-500 flex items-center gap-1 mt-0.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                Active Guide
-              </span>
-            </div>
-          </div>
 
-          {/* Chat Stream Log */}
-          <div className="flex-1 overflow-y-auto p-6 space-y-4">
-            {messages.map((msg) => (
-              <div
-                key={msg.id}
-                className={`flex gap-3 max-w-[85%] ${
-                  msg.sender === "user" ? "ml-auto flex-row-reverse" : "mr-auto"
-                }`}
-              >
-                {msg.sender === "bot" && (
-                  <div className="w-7 h-7 rounded-full bg-orange-100 text-orange-500 flex items-center justify-center shrink-0 shadow-inner">
-                    <Bot className="w-3.5 h-3.5" />
-                  </div>
-                )}
+            {/* Chat Stream Log */}
+            <div className="p-6 space-y-4 h-auto md:flex-1 md:overflow-y-auto">
+              {messages.map((msg) => (
                 <div
-                  className={`p-3.5 rounded-2xl text-xs leading-relaxed ${
-                    msg.sender === "user"
-                      ? "bg-slate-900 text-white rounded-tr-none"
-                      : "bg-white border border-slate-200/50 text-slate-700 shadow-sm rounded-tl-none whitespace-pre-line"
+                  key={msg.id}
+                  className={`flex gap-3 max-w-[85%] ${
+                    msg.sender === "user" ? "ml-auto flex-row-reverse" : "mr-auto"
                   }`}
                 >
-                  {msg.text}
-                </div>
-              </div>
-            ))}
-            <div ref={messagesEndRef} />
-          </div>
-
-          {/* Variables Input Form Panel */}
-          <div className="bg-white border-t border-slate-200/60 p-6 shrink-0 space-y-4">
-            <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">
-              Parameters & Input Settings
-            </h4>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {(prompt.variables || []).map((variable) => (
-                <div key={variable.name} className="flex flex-col">
-                  <label className="text-xs font-semibold text-slate-700 mb-1.5 flex items-center justify-between">
-                    {variable.label}
-                    {activeField === variable.name && (
-                      <span className="text-[9px] font-bold text-orange-500 animate-pulse">
-                        active
-                      </span>
-                    )}
-                  </label>
-                  <input
-                    type="text"
-                    value={inputs[variable.name] || ""}
-                    onFocus={() => handleFieldFocus(variable.name, variable.label)}
-                    onChange={(e) => handleInputChange(variable.name, e.target.value)}
-                    placeholder={variable.defaultValue}
-                    className="px-3.5 py-2.5 bg-slate-50 border border-slate-200/70 rounded-xl text-slate-800 text-xs font-medium focus:outline-none focus:bg-white focus:border-orange-500 transition-all duration-200"
-                  />
+                  {msg.sender === "bot" && (
+                    <div className="w-7 h-7 rounded-full bg-orange-100 text-orange-500 flex items-center justify-center shrink-0 shadow-inner">
+                      <Bot className="w-3.5 h-3.5" />
+                    </div>
+                  )}
+                  <div
+                    className={`p-3.5 rounded-2xl text-xs leading-relaxed ${
+                      msg.sender === "user"
+                        ? "bg-slate-900 text-white rounded-tr-none"
+                        : "bg-white border border-slate-200/50 text-slate-700 shadow-sm rounded-tl-none whitespace-pre-line"
+                    }`}
+                  >
+                    {msg.text}
+                  </div>
                 </div>
               ))}
-            </div>
-          </div>
-        </div>
-
-        {/* RIGHT COLUMN: Interactive Live Prompt Visualizer */}
-        <div className="w-full md:w-[45%] flex flex-col h-[50%] md:h-full bg-white">
-          {/* Header */}
-          <div className="px-6 py-4 border-b border-slate-200/60 flex items-center justify-between shrink-0">
-            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
-              <Sparkles className="w-3.5 h-3.5 text-orange-500" />
-              Live Compiled Prompt
-            </span>
-          </div>
-
-          {/* Compiled Output Viewport */}
-          <div className="flex-1 p-6 sm:p-8 flex flex-col justify-between">
-            <div className="relative flex-1 bg-slate-50/50 border border-slate-200/60 rounded-3xl p-6 font-mono text-xs sm:text-sm text-slate-800 leading-relaxed overflow-y-auto select-all">
-              {renderCompiledPreview()}
+              <div ref={messagesEndRef} />
             </div>
 
-            {/* Custom copy panel */}
-            <div className="mt-6 pt-4 border-t border-slate-100 shrink-0">
-              <button
-                onClick={handleCopyClick}
-                disabled={isCopied}
-                className={`w-full flex items-center justify-center gap-2 px-5 py-4 font-bold text-sm rounded-2xl transition-all duration-300 cursor-pointer shadow-sm ${
-                  isCopied
-                    ? "bg-emerald-500 text-white"
-                    : "bg-slate-900 hover:bg-slate-800 text-white active:scale-[0.98] hover:shadow-slate-900/10"
-                }`}
-              >
-                {isCopied ? (
-                  <>
-                    <Check className="w-4 h-4" />
-                    Copied to Clipboard!
-                  </>
-                ) : (
-                  <>
-                    <Copy className="w-4 h-4 text-orange-500" />
-                    Copy Compiled Prompt
-                  </>
-                )}
-              </button>
-              <p className="text-[10px] text-slate-400 font-medium text-center mt-2.5">
-                Copying will trigger visitor metrics and follow-up popup.
-              </p>
+            {/* Variables Input Form Panel */}
+            <div className="bg-white border-t border-slate-200/60 p-6 shrink-0 space-y-4">
+              <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">
+                Parameters & Input Settings
+              </h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {(prompt.variables || []).map((variable) => (
+                  <div key={variable.name} className="flex flex-col">
+                    <label className="text-xs font-semibold text-slate-700 mb-1.5 flex items-center justify-between">
+                      {variable.label}
+                      {activeField === variable.name && (
+                        <span className="text-[9px] font-bold text-orange-500 animate-pulse">
+                          active
+                        </span>
+                      )}
+                    </label>
+                    <input
+                      type="text"
+                      value={inputs[variable.name] || ""}
+                      onFocus={() => handleFieldFocus(variable.name, variable.label)}
+                      onChange={(e) => handleInputChange(variable.name, e.target.value)}
+                      placeholder={variable.defaultValue}
+                      className="px-3.5 py-2.5 bg-slate-50 border border-slate-200/70 rounded-xl text-slate-800 text-xs font-medium focus:outline-none focus:bg-white focus:border-orange-500 transition-all duration-200"
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* RIGHT COLUMN: Interactive Live Prompt Visualizer */}
+          <div className="w-full md:w-[45%] flex flex-col h-auto md:h-full bg-white">
+            {/* Header */}
+            <div className="px-6 py-4 border-b border-slate-200/60 flex items-center justify-between shrink-0">
+              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5 text-orange-500" />
+                Live Compiled Prompt
+              </span>
+            </div>
+
+            {/* Compiled Output Viewport */}
+            <div className="p-6 sm:p-8 flex flex-col justify-between h-auto md:h-full md:flex-1">
+              <div className="relative bg-slate-50/50 border border-slate-200/60 rounded-3xl p-6 font-mono text-xs sm:text-sm text-slate-800 leading-relaxed select-all min-h-[150px] md:min-h-0 overflow-y-auto md:flex-1">
+                {renderCompiledPreview()}
+              </div>
+
+              {/* Custom copy panel */}
+              <div className="mt-6 pt-4 border-t border-slate-100 shrink-0">
+                <button
+                  onClick={handleCopyClick}
+                  disabled={isCopied}
+                  className={`w-full flex items-center justify-center gap-2 px-5 py-4 font-bold text-sm rounded-2xl transition-all duration-300 cursor-pointer shadow-sm ${
+                    isCopied
+                      ? "bg-emerald-500 text-white"
+                      : "bg-slate-900 hover:bg-slate-800 text-white active:scale-[0.98] hover:shadow-slate-900/10"
+                  }`}
+                >
+                  {isCopied ? (
+                    <>
+                      <Check className="w-4 h-4" />
+                      Copied to Clipboard!
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-4 h-4 text-orange-500" />
+                      Copy Compiled Prompt
+                    </>
+                  )}
+                </button>
+                <p className="text-[10px] text-slate-400 font-medium text-center mt-2.5">
+                  Copying will trigger visitor metrics and follow-up popup.
+                </p>
+              </div>
             </div>
           </div>
         </div>

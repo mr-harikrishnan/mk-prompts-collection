@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { Search, Sparkles, SlidersHorizontal, Copy } from "lucide-react";
 import { Prompt } from "../types";
 
@@ -21,7 +21,19 @@ const CATEGORIES = [
 
 export default function ShowcaseGrid({ prompts, onSelectPrompt, onTriggerLogin }: ShowcaseGridProps) {
   const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All Collection");
+
+  // Debouncing search query updates
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery);
+    }, 300);
+
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [searchQuery]);
 
   // Filtering prompts based on search keyword and category
   const filteredPrompts = useMemo(() => {
@@ -37,9 +49,9 @@ export default function ShowcaseGrid({ prompts, onSelectPrompt, onTriggerLogin }
       }
 
       // 2. Search query filter
-      if (!searchQuery.trim()) return true;
+      if (!debouncedSearchQuery.trim()) return true;
 
-      const query = searchQuery.toLowerCase();
+      const query = debouncedSearchQuery.toLowerCase();
       const matchTitle = (prompt.title || "").toLowerCase().includes(query);
       const matchCategory = (prompt.category || "").toLowerCase().includes(query);
       const matchDesc = (prompt.shortDesc || "").toLowerCase().includes(query) || (prompt.longDesc || "").toLowerCase().includes(query);
@@ -49,24 +61,44 @@ export default function ShowcaseGrid({ prompts, onSelectPrompt, onTriggerLogin }
 
       return matchTitle || matchCategory || matchDesc || matchTags || matchTemplate || matchVariables;
     });
-  }, [prompts, searchQuery, selectedCategory]);
+  }, [prompts, debouncedSearchQuery, selectedCategory]);
 
   return (
     <section className="flex-1 w-full max-w-7xl mx-auto px-6 py-8">
-      {/* Search & Header Section */}
-      <div className="mb-10 text-center sm:text-left flex flex-col md:flex-row md:items-center justify-between gap-6">
-        <div>
-          <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight flex items-center justify-center sm:justify-start gap-2">
-            Explore Prompt World
-            <Sparkles className="w-5 h-5 text-orange-500 animate-pulse" />
-          </h2>
-          <p className="text-slate-500 text-sm mt-1">
-            Premium hand-crafted prompts for visual art generators.
-          </p>
-        </div>
+      {/* Header Section */}
+      <div className="mb-6 text-center sm:text-left">
+        <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight flex items-center justify-center sm:justify-start gap-2">
+          Explore Prompt World
+          <Sparkles className="w-5 h-5 text-orange-500 animate-pulse" />
+        </h2>
+        <p className="text-slate-500 text-sm mt-1">
+          Premium hand-crafted prompts for visual art generators.
+        </p>
+      </div>
 
-        {/* Search bar */}
-        <div className="relative w-full md:max-w-md">
+      {/* Category Pills Slider */}
+      <div className="flex items-center gap-2 overflow-x-auto pb-4 mb-6 -mx-6 px-6 scrollbar-none">
+        <SlidersHorizontal className="w-4 h-4 text-slate-400 shrink-0 mr-1 hidden sm:block" />
+        <div className="flex gap-2">
+          {CATEGORIES.map((category) => (
+            <button
+              key={category}
+              onClick={() => setSelectedCategory(category)}
+              className={`px-4 py-2 rounded-full text-xs font-semibold whitespace-nowrap cursor-pointer transition-all duration-200 border ${
+                selectedCategory === category
+                  ? "bg-slate-900 border-slate-900 text-white shadow-sm"
+                  : "bg-white border-slate-200/60 text-slate-600 hover:border-slate-300 hover:text-slate-900"
+              }`}
+            >
+              {category}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Search bar */}
+      <div className="sticky top-[114px] sm:top-[78px] z-20 bg-slate-50/95 backdrop-blur-md py-4 mb-10 -mx-6 px-6 border-b border-slate-200/10">
+        <div className="relative w-full">
           <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none text-slate-400">
             <Search className="w-4 h-4" />
           </div>
@@ -87,39 +119,19 @@ export default function ShowcaseGrid({ prompts, onSelectPrompt, onTriggerLogin }
         </div>
       </div>
 
-      {/* Category Pills Slider */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-4 mb-8 -mx-6 px-6 scrollbar-none">
-        <SlidersHorizontal className="w-4 h-4 text-slate-400 shrink-0 mr-1 hidden sm:block" />
-        <div className="flex gap-2">
-          {CATEGORIES.map((category) => (
-            <button
-              key={category}
-              onClick={() => setSelectedCategory(category)}
-              className={`px-4 py-2 rounded-full text-xs font-semibold whitespace-nowrap cursor-pointer transition-all duration-200 border ${
-                selectedCategory === category
-                  ? "bg-slate-900 border-slate-900 text-white shadow-sm"
-                  : "bg-white border-slate-200/60 text-slate-600 hover:border-slate-300 hover:text-slate-900"
-              }`}
-            >
-              {category}
-            </button>
-          ))}
-        </div>
-      </div>
-
       {/* Showcase Grid */}
       {filteredPrompts.length > 0 ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
           {filteredPrompts.map((prompt) => (
             <div
               key={prompt.id}
               className="group bg-white rounded-3xl border border-slate-200/50 hover:border-slate-300/80 overflow-hidden flex flex-col transition-apple hover:shadow-[0_8px_30px_rgb(0,0,0,0.02)]"
             >
               {/* Image Preview Container */}
-              <div className="relative aspect-[4/3] bg-slate-100 overflow-hidden border-b border-slate-100">
+              <div className="relative aspect-[768/1376] bg-slate-100 overflow-hidden border-b border-slate-100">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src={prompt.image}
+                  src="/images/tempcreatedimage.png"
                   alt={prompt.title}
                   className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                   loading="lazy"

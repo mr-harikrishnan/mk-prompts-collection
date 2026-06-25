@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
   BarChart3,
   PlusCircle,
@@ -13,7 +13,9 @@ import {
   LogOut,
   Calendar,
   Layers,
-  Check
+  Check,
+  X,
+  Edit
 } from "lucide-react";
 import { Prompt, Feedback, CreatorSettings, VisitorMetrics, PromptVariable } from "../types";
 
@@ -24,9 +26,12 @@ interface AdminDashboardProps {
   metrics: VisitorMetrics;
   onAddPrompt: (prompt: Omit<Prompt, "id" | "copyCount" | "stars" | "totalReviews">) => void;
   onDeletePrompt: (id: string) => void;
+  onUpdatePrompt: (prompt: Prompt) => void;
   onUpdateSettings: (settings: CreatorSettings) => void;
   onDeleteAllFeedback: () => void;
   onLogout: () => void;
+  isSidebarOpen: boolean;
+  onSidebarClose: () => void;
 }
 
 type TabType = "analytics" | "prompts" | "settings" | "feedbacks";
@@ -38,12 +43,31 @@ export default function AdminDashboard({
   metrics,
   onAddPrompt,
   onDeletePrompt,
+  onUpdatePrompt,
   onUpdateSettings,
   onDeleteAllFeedback,
   onLogout,
+  isSidebarOpen,
+  onSidebarClose,
 }: AdminDashboardProps) {
   const [activeTab, setActiveTab] = useState<TabType>("analytics");
   const [isFormCollapsed, setIsFormCollapsed] = useState(true);
+  const [editingPromptId, setEditingPromptId] = useState<string | null>(null);
+
+  // Prevent background scroll when mobile sidebar drawer is open
+  useEffect(() => {
+    if (isSidebarOpen) {
+      document.body.style.overflow = "hidden";
+      document.documentElement.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+      document.documentElement.style.overflow = "";
+    }
+    return () => {
+      document.body.style.overflow = "";
+      document.documentElement.style.overflow = "";
+    };
+  }, [isSidebarOpen]);
 
   // Form states for adding prompt
   const [newTitle, setNewTitle] = useState("");
@@ -155,26 +179,21 @@ export default function AdminDashboard({
     setVariableFields((prev) => prev.filter((_, i) => i !== index));
   };
 
-  // Add Prompt Submission
-  const handlePromptSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newTitle.trim() || !newShortDesc.trim() || !newTemplate.trim() || !newImageBase64) {
-      alert("Please populate all required fields and upload an image illustration.");
-      return;
-    }
+  // Edit Prompt State triggers
+  const handleStartEdit = (prompt: Prompt) => {
+    setEditingPromptId(prompt.id);
+    setNewTitle(prompt.title);
+    setNewCategory(prompt.category);
+    setNewShortDesc(prompt.shortDesc);
+    setNewLongDesc(prompt.longDesc || "");
+    setNewTemplate(prompt.template);
+    setNewImageBase64(prompt.image);
+    setVariableFields(prompt.variables || []);
+    setIsFormCollapsed(false); // expand the form to edit
+  };
 
-    onAddPrompt({
-      title: newTitle.trim(),
-      category: newCategory,
-      shortDesc: newShortDesc.trim(),
-      longDesc: newLongDesc.trim() || newShortDesc.trim(),
-      template: newTemplate.trim(),
-      image: newImageBase64,
-      variables: variableFields,
-      tags: [newCategory.split(" & ")[0] || "Custom", "New", "Aesthetic"],
-    });
-
-    // Reset fields
+  const handleCancelEdit = () => {
+    setEditingPromptId(null);
     setNewTitle("");
     setNewShortDesc("");
     setNewLongDesc("");
@@ -182,6 +201,47 @@ export default function AdminDashboard({
     setNewImageBase64("");
     setVariableFields([]);
     setIsFormCollapsed(true);
+  };
+
+  // Add/Edit Prompt Submission
+  const handlePromptSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newTitle.trim() || !newShortDesc.trim() || !newTemplate.trim() || !newImageBase64) {
+      alert("Please populate all required fields and upload an image illustration.");
+      return;
+    }
+
+    if (editingPromptId) {
+      const original = prompts.find((p) => p.id === editingPromptId);
+      onUpdatePrompt({
+        id: editingPromptId,
+        title: newTitle.trim(),
+        category: newCategory,
+        shortDesc: newShortDesc.trim(),
+        longDesc: newLongDesc.trim() || newShortDesc.trim(),
+        template: newTemplate.trim(),
+        image: newImageBase64,
+        variables: variableFields,
+        tags: original?.tags || [newCategory.split(" & ")[0] || "Custom", "Updated"],
+        copyCount: original?.copyCount || 0,
+        stars: original?.stars || 5.0,
+        totalReviews: original?.totalReviews || 0,
+      });
+    } else {
+      onAddPrompt({
+        title: newTitle.trim(),
+        category: newCategory,
+        shortDesc: newShortDesc.trim(),
+        longDesc: newLongDesc.trim() || newShortDesc.trim(),
+        template: newTemplate.trim(),
+        image: newImageBase64,
+        variables: variableFields,
+        tags: [newCategory.split(" & ")[0] || "Custom", "New", "Aesthetic"],
+      });
+    }
+
+    // Reset fields
+    handleCancelEdit();
   };
 
   // Settings Save Submit
@@ -202,19 +262,44 @@ export default function AdminDashboard({
 
   return (
     <div className="flex-1 w-full max-w-7xl mx-auto px-6 py-8 flex flex-col md:flex-row gap-8">
+      {/* Mobile Sidebar Backdrop Overlay */}
+      {isSidebarOpen && (
+        <div
+          onClick={onSidebarClose}
+          className="fixed inset-0 z-30 bg-black/35 backdrop-blur-xs md:hidden animate-in fade-in duration-200"
+        />
+      )}
+
       {/* Sidebar navigation */}
-      <aside className="w-full md:w-64 shrink-0 flex flex-col justify-between p-6 bg-white border border-slate-200/50 rounded-3xl shadow-sm h-fit">
+      <aside
+        className={`fixed inset-y-0 left-0 z-40 w-72 h-full bg-white p-6 border-r border-slate-200/60 flex flex-col justify-between transition-transform duration-300 ease-in-out shadow-2xl md:translate-x-0 md:static md:z-10 md:shadow-sm md:border md:rounded-3xl md:w-64 md:h-fit md:sticky md:top-[100px] md:p-6 ${
+          isSidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
+        }`}
+      >
         <div className="space-y-6">
-          <div className="flex items-center gap-2 px-2">
-            <Layers className="w-5 h-5 text-orange-500" />
-            <span className="font-extrabold text-slate-800 text-sm tracking-wide">
-              ADMIN CONTROLS
-            </span>
+          <div className="flex items-center justify-between px-2">
+            <div className="flex items-center gap-2">
+              <Layers className="w-5 h-5 text-orange-500" />
+              <span className="font-extrabold text-slate-800 text-sm tracking-wide">
+                ADMIN CONTROLS
+              </span>
+            </div>
+            {/* Close button for mobile drawer */}
+            <button
+              type="button"
+              onClick={onSidebarClose}
+              className="md:hidden w-7 h-7 rounded-full bg-slate-50 hover:bg-slate-100 border border-slate-200/50 flex items-center justify-center text-slate-500 hover:text-slate-800 transition-colors cursor-pointer"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
           </div>
 
           <nav className="flex flex-col gap-1.5">
             <button
-              onClick={() => setActiveTab("analytics")}
+              onClick={() => {
+                setActiveTab("analytics");
+                onSidebarClose();
+              }}
               className={`flex items-center gap-3 px-4 py-3 rounded-2xl text-xs font-bold transition-all duration-150 cursor-pointer ${
                 activeTab === "analytics"
                   ? "bg-slate-900 text-white shadow-md"
@@ -226,7 +311,10 @@ export default function AdminDashboard({
             </button>
 
             <button
-              onClick={() => setActiveTab("prompts")}
+              onClick={() => {
+                setActiveTab("prompts");
+                onSidebarClose();
+              }}
               className={`flex items-center gap-3 px-4 py-3 rounded-2xl text-xs font-bold transition-all duration-150 cursor-pointer ${
                 activeTab === "prompts"
                   ? "bg-slate-900 text-white shadow-md"
@@ -238,7 +326,10 @@ export default function AdminDashboard({
             </button>
 
             <button
-              onClick={() => setActiveTab("feedbacks")}
+              onClick={() => {
+                setActiveTab("feedbacks");
+                onSidebarClose();
+              }}
               className={`flex items-center gap-3 px-4 py-3 rounded-2xl text-xs font-bold transition-all duration-150 cursor-pointer ${
                 activeTab === "feedbacks"
                   ? "bg-slate-900 text-white shadow-md"
@@ -250,7 +341,10 @@ export default function AdminDashboard({
             </button>
 
             <button
-              onClick={() => setActiveTab("settings")}
+              onClick={() => {
+                setActiveTab("settings");
+                onSidebarClose();
+              }}
               className={`flex items-center gap-3 px-4 py-3 rounded-2xl text-xs font-bold transition-all duration-150 cursor-pointer ${
                 activeTab === "settings"
                   ? "bg-slate-900 text-white shadow-md"
@@ -264,7 +358,10 @@ export default function AdminDashboard({
         </div>
 
         <button
-          onClick={onLogout}
+          onClick={() => {
+            onLogout();
+            onSidebarClose();
+          }}
           className="mt-10 flex items-center gap-3 px-4 py-3 text-rose-600 hover:bg-rose-50 rounded-2xl text-xs font-bold transition-colors cursor-pointer"
         >
           <LogOut className="w-4 h-4" />
@@ -448,7 +545,13 @@ export default function AdminDashboard({
               </div>
 
               <button
-                onClick={() => setIsFormCollapsed(!isFormCollapsed)}
+                onClick={() => {
+                  if (!isFormCollapsed && editingPromptId) {
+                    handleCancelEdit();
+                  } else {
+                    setIsFormCollapsed(!isFormCollapsed);
+                  }
+                }}
                 className="flex items-center gap-1 px-4 py-2 border border-slate-200 rounded-xl hover:bg-slate-50 font-bold text-xs text-slate-700 transition-colors duration-150 cursor-pointer"
               >
                 {isFormCollapsed ? (
@@ -459,7 +562,7 @@ export default function AdminDashboard({
                 ) : (
                   <>
                     <ChevronUp className="w-3.5 h-3.5" />
-                    Collapse Form
+                    {editingPromptId ? "Cancel Edit" : "Collapse Form"}
                   </>
                 )}
               </button>
@@ -468,7 +571,9 @@ export default function AdminDashboard({
             {/* Collapsible Add Form */}
             {!isFormCollapsed && (
               <form onSubmit={handlePromptSubmit} className="p-6 bg-slate-50 border border-slate-200/40 rounded-3xl space-y-6">
-                <h3 className="text-sm font-extrabold text-slate-800">Add New AI Prompt</h3>
+                <h3 className="text-sm font-extrabold text-slate-850">
+                  {editingPromptId ? "Edit AI Prompt" : "Add New AI Prompt"}
+                </h3>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                   {/* Title */}
@@ -642,13 +747,24 @@ export default function AdminDashboard({
                   </div>
                 </div>
 
-                {/* Submit Form button */}
-                <button
-                  type="submit"
-                  className="w-full py-4 bg-orange-500 hover:bg-orange-600 text-white font-bold text-xs rounded-2xl shadow-sm hover:shadow-orange-500/10 cursor-pointer transition-colors active:scale-[0.99]"
-                >
-                  Create Showcase Prompt
-                </button>
+                {/* Submit / Cancel Form buttons */}
+                <div className="flex flex-col sm:flex-row gap-3">
+                  {editingPromptId && (
+                    <button
+                      type="button"
+                      onClick={handleCancelEdit}
+                      className="flex-1 py-4 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-2xl cursor-pointer transition-colors"
+                    >
+                      Cancel Edit
+                    </button>
+                  )}
+                  <button
+                    type="submit"
+                    className="flex-1 py-4 bg-orange-500 hover:bg-orange-600 text-white font-bold text-xs rounded-2xl shadow-sm hover:shadow-orange-500/10 cursor-pointer transition-colors active:scale-[0.99]"
+                  >
+                    {editingPromptId ? "Save Prompt Changes" : "Create Showcase Prompt"}
+                  </button>
+                </div>
               </form>
             )}
 
@@ -663,7 +779,7 @@ export default function AdminDashboard({
                       {/* Thumbnail */}
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
-                        src={prompt.image}
+                        src="/images/tempcreatedimage.png"
                         alt={prompt.title}
                         className="w-12 h-12 rounded-xl object-cover border border-slate-200/50 shrink-0"
                       />
@@ -675,13 +791,25 @@ export default function AdminDashboard({
                       </div>
                     </div>
 
-                    <button
-                      onClick={() => onDeletePrompt(prompt.id)}
-                      className="p-2 border border-slate-200 hover:border-rose-200 hover:bg-rose-50 text-slate-400 hover:text-rose-600 rounded-xl transition-all cursor-pointer"
-                      title="Delete Prompt"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleStartEdit(prompt)}
+                        className="p-2 border border-slate-200 hover:border-blue-200 hover:bg-blue-50 text-slate-400 hover:text-blue-600 rounded-xl transition-all cursor-pointer"
+                        title="Edit Prompt"
+                      >
+                        <Edit className="w-4 h-4" />
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => onDeletePrompt(prompt.id)}
+                        className="p-2 border border-slate-200 hover:border-rose-200 hover:bg-rose-50 text-slate-400 hover:text-rose-600 rounded-xl transition-all cursor-pointer"
+                        title="Delete Prompt"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -759,9 +887,19 @@ export default function AdminDashboard({
         {/* TAB 4: SETTINGS */}
         {activeTab === "settings" && (
           <div className="space-y-8 animate-in fade-in duration-200">
-            <div>
-              <h2 className="text-xl font-extrabold text-slate-900">Creator Profile Settings</h2>
-              <p className="text-slate-500 text-xs mt-0.5">Configure landing info, Instagram tags, and credentials.</p>
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <h2 className="text-xl font-extrabold text-slate-900">Creator Profile Settings</h2>
+                <p className="text-slate-500 text-xs mt-0.5">Configure landing info, Instagram tags, and credentials.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setActiveTab("analytics")}
+                className="w-8 h-8 rounded-full bg-slate-105 hover:bg-slate-200 border border-slate-200/60 flex items-center justify-center text-slate-500 hover:text-slate-800 transition-colors duration-150 cursor-pointer shrink-0"
+                title="Back to Admin Dashboard"
+              >
+                <X className="w-4 h-4" />
+              </button>
             </div>
 
             {isSettingsSaved && (

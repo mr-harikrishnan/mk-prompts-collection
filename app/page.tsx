@@ -20,17 +20,10 @@ import {
 } from "../data/mockData";
 import { Prompt, Feedback, CreatorSettings, VisitorMetrics } from "../types";
 
-interface Star {
-  id: number;
-  top: string;
-  left: string;
-  size: string;
-  delay: string;
-}
+
 
 export default function Home() {
   const [isMounted, setIsMounted] = useState(false);
-  const [stars, setStars] = useState<Star[]>([]);
   
   // Offline client-side databases
   const [prompts, setPrompts] = useLocalStorage<Prompt[]>("mk_prompts", INITIAL_PROMPTS);
@@ -41,6 +34,7 @@ export default function Home() {
 
   // Layout navigation state
   const [activeView, setActiveView] = useState<"showcase" | "dashboard">("showcase");
+  const [isAdminSidebarOpen, setIsAdminSidebarOpen] = useState(false);
 
   // Modals state
   const [selectedPrompt, setSelectedPrompt] = useState<Prompt | null>(null);
@@ -56,6 +50,19 @@ export default function Home() {
 
   // Trigger mounts and visits tracking safely
   useEffect(() => {
+    if (typeof window !== "undefined") {
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get("clear") === "1") {
+        window.localStorage.removeItem("mk_prompts");
+        window.localStorage.removeItem("mk_feedbacks");
+        window.localStorage.removeItem("mk_settings");
+        window.localStorage.removeItem("mk_metrics");
+        window.localStorage.removeItem("mk_is_admin");
+        window.location.href = window.location.pathname;
+        return;
+      }
+    }
+
     const timer = setTimeout(() => {
       setIsMounted(true);
     }, 0);
@@ -86,23 +93,7 @@ export default function Home() {
     return () => clearTimeout(timer);
   }, [setMetrics]);
 
-  // Generate random twinkling stars safely on client mount
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      const generatedStars = Array.from({ length: 80 }).map((_, index) => {
-        const size = Math.random() * 2.5 + 0.5; // 0.5px to 3px
-        return {
-          id: index,
-          top: `${Math.random() * 100}%`,
-          left: `${Math.random() * 100}%`,
-          size: `${size}px`,
-          delay: `${Math.random() * 5}s`,
-        };
-      });
-      setStars(generatedStars);
-    }, 0);
-    return () => clearTimeout(timer);
-  }, []);
+
 
   // Synchronize URL hash with activeView for browser back/forward navigation
   // Logging out the admin session if they click the browser back button to leave the dashboard.
@@ -153,12 +144,51 @@ export default function Home() {
   // Force activeView and hash to dashboard if logged in as admin (local storage lock)
   useEffect(() => {
     if (isMounted && isAdminLoggedIn) {
-      setActiveView("dashboard");
+      setTimeout(() => {
+        setActiveView("dashboard");
+      }, 0);
       if (window.location.hash !== "#dashboard") {
         window.location.hash = "dashboard";
       }
     }
   }, [isMounted, isAdminLoggedIn]);
+
+  // Prevent background scroll when any modal is open
+  useEffect(() => {
+    const isAnyModalOpen =
+      isDetailsOpen ||
+      isCustomizerOpen ||
+      isFeedbackOpen ||
+      isLoginOpen ||
+      isFollowUpOpen;
+
+    if (isAnyModalOpen) {
+      const scrollY = window.scrollY;
+      document.body.style.position = "fixed";
+      document.body.style.top = `-${scrollY}px`;
+      document.body.style.width = "100%";
+      document.body.style.overflow = "hidden";
+      document.documentElement.style.overflow = "hidden";
+    } else {
+      const scrollY = document.body.style.top;
+      document.body.style.position = "";
+      document.body.style.top = "";
+      document.body.style.width = "";
+      document.body.style.overflow = "";
+      document.documentElement.style.overflow = "";
+      if (scrollY) {
+        window.scrollTo(0, parseInt(scrollY || "0") * -1);
+      }
+    }
+
+    return () => {
+      document.body.style.position = "";
+      document.body.style.top = "";
+      document.body.style.width = "";
+      document.body.style.overflow = "";
+      document.documentElement.style.overflow = "";
+    };
+  }, [isDetailsOpen, isCustomizerOpen, isFeedbackOpen, isLoginOpen, isFollowUpOpen]);
 
   if (!isMounted) {
     return (
@@ -247,6 +277,15 @@ export default function Home() {
     }
   };
 
+  // Update prompt (admin)
+  const handleUpdatePrompt = (updatedPrompt: Prompt) => {
+    setPrompts((prev) =>
+      prev.map((p) => (p.id === updatedPrompt.id ? updatedPrompt : p))
+    );
+    setToastMsg("Prompt updated successfully!");
+    setIsToastOpen(true);
+  };
+
   // Submit rating feedbacks
   const handleSubmitFeedback = (newReview: Omit<Feedback, "id" | "date">) => {
     const review: Feedback = {
@@ -293,81 +332,28 @@ export default function Home() {
 
   return (
     <>
-      {/* Background decoration (Dotted Globe, Stars, Flying Paper Airplane) */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none select-none z-0 starry-grid-light bg-slate-50">
-        {/* Twinkling stars */}
-        <div className="absolute inset-0">
-          {stars.map((star) => (
-            <div
-              key={star.id}
-              className="absolute rounded-full bg-orange-500/40 star"
-              style={{
-                top: star.top,
-                left: star.left,
-                width: star.size,
-                height: star.size,
-                animationDelay: star.delay,
-                boxShadow: "0 0 3px rgba(249, 115, 22, 0.3)",
-              }}
-            />
-          ))}
-        </div>
-
-        {/* Dotted globe vector */}
-        <div className="absolute inset-0 flex items-center justify-center overflow-hidden">
-          <svg
-            className="w-[85%] max-w-5xl h-auto opacity-[0.03] text-slate-800"
-            viewBox="0 0 1000 500"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            strokeDasharray="4 4"
-          >
-            <ellipse cx="500" cy="250" rx="450" ry="220" />
-            <ellipse cx="500" cy="250" rx="300" ry="220" />
-            <ellipse cx="500" cy="250" rx="150" ry="220" />
-            <line x1="50" y1="250" x2="950" y2="250" />
-            <line x1="500" y1="30" x2="500" y2="470" />
-            <path d="M 100,250 Q 500,100 900,250" />
-            <path d="M 100,250 Q 500,400 900,250" />
-            <path
-              d="M -100 650 C 300 550, 200 150, 700 300 C 1200 450, 1000 50, 1600 -100"
-              stroke="rgba(249, 115, 22, 0.15)"
-              strokeWidth="2"
-              strokeDasharray="6 6"
-              fill="none"
-            />
-          </svg>
-        </div>
-
-        {/* Flying paper airplane along path */}
-        <div className="absolute inset-0 w-full h-full">
-          <svg
-            viewBox="0 0 24 24"
-            className="w-8 h-8 text-orange-500/60 fill-orange-500/5 absolute animate-airplane"
-            style={{
-              transformBox: "fill-box",
-              transformOrigin: "center",
-            }}
-          >
-            <path
-              d="M1.04 1.57L22.96 12L1.04 22.43L4.91 12L1.04 1.57Z"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinejoin="round"
-            />
-            <path d="M4.91 12H22.96" stroke="currentColor" strokeWidth="1.5" />
-          </svg>
-        </div>
+      {/* Background decoration (Responsive Image Background) */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none select-none z-0">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/images/userscreenbg.png"
+          alt="Background"
+          className="w-full h-full object-cover opacity-35"
+        />
+        {/* Semi-translucent overlay to protect contrast of texts & cards */}
+        <div className="absolute inset-0 bg-slate-50/70 backdrop-blur-[2px]" />
       </div>
 
       {/* Main Workspace Frame */}
       <div className="relative z-10 flex flex-col min-h-screen bg-transparent text-slate-900 transition-colors duration-300">
         
         {/* 2. Global header navigation profile banner */}
-        <Header settings={settings} />
+        <Header
+          settings={settings}
+          showAdminMenu={activeView === "dashboard" && isAdminLoggedIn}
+          onOpenAdminSidebar={() => setIsAdminSidebarOpen(true)}
+        />
 
-        {/* Dynamic viewport renderer (Showcase or Creator Dashboard) */}
         {activeView === "showcase" || !isAdminLoggedIn ? (
           <ShowcaseGrid
             prompts={prompts}
@@ -385,8 +371,11 @@ export default function Home() {
             metrics={metrics}
             onAddPrompt={handleAddPrompt}
             onDeletePrompt={handleDeletePrompt}
+            onUpdatePrompt={handleUpdatePrompt}
             onUpdateSettings={setSettings}
             onDeleteAllFeedback={handleDeleteAllFeedback}
+            isSidebarOpen={isAdminSidebarOpen}
+            onSidebarClose={() => setIsAdminSidebarOpen(false)}
             onLogout={() => {
               setIsAdminLoggedIn(false);
               setActiveView("showcase");

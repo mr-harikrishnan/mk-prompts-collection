@@ -42,18 +42,18 @@ export default function AdminLoginModal({
       />
 
       {/* Modal Surface - macOS styled panel */}
-      <div className="relative w-full max-w-sm bg-white rounded-3xl border border-slate-200/80 shadow-2xl overflow-hidden z-10 animate-in fade-in zoom-in-95 duration-200">
+      <div className="relative w-full max-w-sm bg-white rounded-3xl border border-slate-200/80 shadow-2xl overflow-hidden flex flex-col max-h-[90vh] z-10 animate-in fade-in zoom-in-95 duration-200">
         
         {/* Header Close button */}
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 border border-slate-200/60 flex items-center justify-center text-slate-500 hover:text-slate-800 transition-colors duration-150 cursor-pointer z-10"
+          className="absolute top-4 right-4 w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 border border-slate-200/60 flex items-center justify-center text-slate-500 hover:text-slate-800 transition-colors duration-150 cursor-pointer z-20"
         >
           <X className="w-4 h-4" />
         </button>
 
         {/* Lock Modal Content */}
-        <form onSubmit={handleSubmit} className="p-6 sm:p-8">
+        <form onSubmit={handleSubmit} className="p-6 sm:p-8 overflow-y-auto flex-1">
           <div className="text-center mb-6">
             <div className="w-10 h-10 rounded-full bg-slate-100 text-slate-700 flex items-center justify-center mx-auto mb-3 shadow-inner">
               <Lock className="w-4.5 h-4.5" />
