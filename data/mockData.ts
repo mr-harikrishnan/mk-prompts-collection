@@ -97,8 +97,8 @@ export const INITIAL_PROMPTS: Prompt[] = [
 
 export const DEFAULT_SETTINGS = {
   pageName: "MK PROMPTS WORLD",
-  instagramUsername: "mk_prompts_world",
-  instagramLink: "https://www.instagram.com/mk_prompts_world",
+  instagramUsername: "mk_creative_art_17",
+  instagramLink: "https://www.instagram.com/mk_creative_art_17?igsh=Y2V2eTE1YTZwZmEz",
   followersText: "120K followers",
   accessKey: "mkloveart"
 };

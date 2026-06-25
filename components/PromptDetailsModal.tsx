@@ -102,23 +102,36 @@ export default function PromptDetailsModal({
 
           {/* Action CTAs */}
           <div className="flex flex-col sm:flex-row gap-3 pt-6 border-t border-slate-100">
-            {/* Copy default full prompt */}
-            <button
-              onClick={() => onCopy(prompt.template)}
-              className="flex-1 flex items-center justify-center gap-2 px-5 py-3.5 bg-slate-100 hover:bg-slate-200 border border-slate-200/50 text-slate-700 font-semibold text-xs rounded-2xl transition-all duration-200 cursor-pointer active:scale-[0.98]"
-            >
-              <Copy className="w-4 h-4 text-slate-600" />
-              Copy Full Prompt
-            </button>
+            {prompt.isCustomizable !== false ? (
+              <>
+                {/* Customize & Copy (Primary) */}
+                <button
+                  onClick={() => onCustomize(prompt)}
+                  className="flex-1 flex items-center justify-center gap-2 px-5 py-3.5 bg-slate-900 hover:bg-slate-850 text-white font-semibold text-xs rounded-2xl transition-all duration-200 cursor-pointer active:scale-[0.98] shadow-sm hover:shadow-slate-900/10"
+                >
+                  <Copy className="w-4 h-4 text-orange-500 animate-pulse" />
+                  Customize & Copy Prompt
+                </button>
 
-            {/* Customize variable prompt */}
-            <button
-              onClick={() => onCustomize(prompt)}
-              className="flex-1 flex items-center justify-center gap-2 px-5 py-3.5 bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs rounded-2xl transition-all duration-200 cursor-pointer active:scale-[0.98] shadow-sm hover:shadow-slate-900/10"
-            >
-              <Settings2 className="w-4 h-4 text-orange-500" />
-              Customize variables
-            </button>
+                {/* Copy Raw Template (Secondary) */}
+                <button
+                  onClick={() => onCopy(prompt.template)}
+                  className="flex-1 flex items-center justify-center gap-2 px-5 py-3.5 bg-slate-100 hover:bg-slate-200 border border-slate-200/50 text-slate-700 font-semibold text-xs rounded-2xl transition-all duration-200 cursor-pointer active:scale-[0.98]"
+                >
+                  <Settings2 className="w-4 h-4 text-slate-500" />
+                  Copy Raw Template
+                </button>
+              </>
+            ) : (
+              /* If customization is disabled, only copy is available as primary button */
+              <button
+                onClick={() => onCopy(prompt.template)}
+                className="w-full flex items-center justify-center gap-2 px-5 py-3.5 bg-slate-900 hover:bg-slate-850 text-white font-semibold text-xs rounded-2xl transition-all duration-200 cursor-pointer active:scale-[0.98] shadow-sm hover:shadow-slate-900/10"
+              >
+                <Copy className="w-4 h-4 text-orange-500" />
+                Copy Prompt Template
+              </button>
+            )}
           </div>
 
           {/* Reviews list */}

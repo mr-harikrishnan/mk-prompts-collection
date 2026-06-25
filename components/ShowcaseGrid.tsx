@@ -175,7 +175,7 @@ export default function ShowcaseGrid({ prompts, onSelectPrompt, onTriggerLogin, 
 
                 {/* Unique Key Overlay */}
                 {prompt.promptKey && (
-                  <span className="absolute top-4 right-4 bg-slate-900/95 backdrop-blur-md text-orange-400 text-[10px] font-mono font-black tracking-widest px-2.5 py-1 rounded-full shadow-sm">
+                  <span className="absolute top-4 right-4 bg-slate-900/95 backdrop-blur-md text-white text-[10px] font-mono font-black tracking-widest px-2.5 py-1 rounded-full shadow-sm">
                     {prompt.promptKey}
                   </span>
                 )}

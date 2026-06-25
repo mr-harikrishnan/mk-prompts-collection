@@ -15,7 +15,8 @@ import {
   Layers,
   Check,
   X,
-  Edit
+  Edit,
+  Search
 } from "lucide-react";
 import { Prompt, Feedback, CreatorSettings, VisitorMetrics, PromptVariable } from "../types";
 
@@ -55,6 +56,7 @@ export default function AdminDashboard({
   const [editingPromptId, setEditingPromptId] = useState<string | null>(null);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [isLogoutConfirmOpen, setIsLogoutConfirmOpen] = useState(false);
+  const [isCustomizable, setIsCustomizable] = useState(true);
 
   // Prevent background scroll when mobile sidebar drawer is open
   useEffect(() => {
@@ -92,6 +94,7 @@ export default function AdminDashboard({
   const [editFollowers, setEditFollowers] = useState(settings.followersText);
   const [editAccessKey, setEditAccessKey] = useState(settings.accessKey);
   const [isSettingsSaved, setIsSettingsSaved] = useState(false);
+  const [adminSearchQuery, setAdminSearchQuery] = useState("");
 
   // Dynamic Donut Chart Data Calculation
   const categoryStats = useMemo(() => {
@@ -139,6 +142,19 @@ export default function AdminDashboard({
     return parseFloat((sum / feedbacks.length).toFixed(1));
   }, [feedbacks]);
 
+  // Filter prompts inside admin panel
+  const filteredAdminPrompts = useMemo(() => {
+    if (!adminSearchQuery.trim()) return prompts;
+    const query = adminSearchQuery.toLowerCase();
+    return prompts.filter((p) => {
+      const matchTitle = (p.title || "").toLowerCase().includes(query);
+      const matchCategory = (p.category || "").toLowerCase().includes(query);
+      const matchKey = (p.promptKey || "").toLowerCase().includes(query);
+      const matchDesc = (p.shortDesc || "").toLowerCase().includes(query) || (p.longDesc || "").toLowerCase().includes(query);
+      return matchTitle || matchCategory || matchKey || matchDesc;
+    });
+  }, [prompts, adminSearchQuery]);
+
   // Handle Base64 file conversions (local preview only)
   const handleImageFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -162,6 +178,7 @@ export default function AdminDashboard({
     setNewTemplate(prompt.template);
     setNewImageBase64(prompt.image);
     setVariableFields(prompt.variables || []);
+    setIsCustomizable(prompt.isCustomizable !== false);
     setIsFormCollapsed(false); // expand the form to edit
   };
 
@@ -174,6 +191,7 @@ export default function AdminDashboard({
     setNewTemplate("");
     setNewImageBase64("");
     setVariableFields([]);
+    setIsCustomizable(true);
     setIsFormCollapsed(true);
   };
 
@@ -223,6 +241,7 @@ export default function AdminDashboard({
           copyCount: original?.copyCount || 0,
           stars: original?.stars || 5.0,
           totalReviews: original?.totalReviews || 0,
+          isCustomizable,
         });
       } else {
         onAddPrompt({
@@ -234,6 +253,7 @@ export default function AdminDashboard({
           image: finalImageUrl,
           variables: [],
           tags: [newCategory.split(" & ")[0] || "Custom", "New", "Aesthetic"],
+          isCustomizable,
         });
       }
 
@@ -685,6 +705,23 @@ export default function AdminDashboard({
                   />
                 </div>
 
+                {/* AI Customizer Toggle */}
+                <div className="flex items-center gap-2.5 p-4 bg-white border border-slate-200/60 rounded-2xl max-w-fit shadow-sm">
+                  <input
+                    type="checkbox"
+                    id="is-customizable-toggle"
+                    checked={isCustomizable}
+                    onChange={(e) => setIsCustomizable(e.target.checked)}
+                    className="w-4 h-4 rounded text-orange-500 border-slate-300 focus:ring-orange-500 cursor-pointer accent-orange-500"
+                  />
+                  <label htmlFor="is-customizable-toggle" className="text-xs font-bold text-slate-700 cursor-pointer select-none">
+                    Enable AI Customizer
+                  </label>
+                  <span className="text-[10px] text-slate-400 font-medium">
+                    (Allows users to personalize names, locations, and details via Gemini AI)
+                  </span>
+                </div>
+
                 {/* Template box */}
                 <div className="flex flex-col">
                   <label className="text-xs font-semibold text-slate-700 mb-1.5">
@@ -735,55 +772,85 @@ export default function AdminDashboard({
 
             {/* List of active prompts */}
             <div className="space-y-4">
-              <h3 className="text-sm font-extrabold text-slate-850">Active Prompt Database</h3>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <h3 className="text-sm font-extrabold text-slate-850">Active Prompt Database</h3>
+                <div className="relative w-full sm:w-64">
+                  <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none text-slate-400">
+                    <Search className="w-3.5 h-3.5" />
+                  </div>
+                  <input
+                    type="text"
+                    placeholder="Search title, key, category..."
+                    value={adminSearchQuery}
+                    onChange={(e) => setAdminSearchQuery(e.target.value)}
+                    className="w-full pl-9 pr-8 py-2 bg-slate-50 border border-slate-200/60 rounded-xl text-slate-850 text-xs focus:outline-none focus:border-orange-500 focus:bg-white transition-all duration-200"
+                  />
+                  {adminSearchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => setAdminSearchQuery("")}
+                      className="absolute inset-y-0 right-2.5 flex items-center text-slate-400 hover:text-slate-650 font-bold text-xs cursor-pointer"
+                      title="Clear search"
+                    >
+                      ×
+                    </button>
+                  )}
+                </div>
+              </div>
               
               <div className="divide-y divide-slate-150">
-                {prompts.map((prompt) => (
-                  <div key={prompt.id} className="py-4 flex items-center justify-between gap-4">
-                    <div className="flex items-center gap-3">
-                      {/* Thumbnail */}
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={prompt.image}
-                        alt={prompt.title}
-                        className="w-12 h-12 rounded-xl object-cover border border-slate-200/50 shrink-0"
-                      />
-                      <div>
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          <h4 className="text-xs font-bold text-slate-850">{prompt.title}</h4>
-                          {prompt.promptKey && (
-                            <span className="px-1.5 py-0.5 bg-slate-900 text-orange-400 font-mono text-[9px] font-black tracking-widest rounded-md uppercase">
-                              {prompt.promptKey}
-                            </span>
-                          )}
+                {filteredAdminPrompts.length > 0 ? (
+                  filteredAdminPrompts.map((prompt) => (
+                    <div key={prompt.id} className="py-4 flex items-center justify-between gap-4">
+                      <div className="flex items-center gap-3">
+                        {/* Thumbnail */}
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={prompt.image}
+                          alt={prompt.title}
+                          className="w-12 h-12 rounded-xl object-cover border border-slate-200/50 shrink-0"
+                        />
+                        <div>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <h4 className="text-xs font-bold text-slate-850">{prompt.title}</h4>
+                            {prompt.promptKey && (
+                              <span className="px-1.5 py-0.5 bg-slate-900 text-orange-400 font-mono text-white text-[9px] font-black tracking-widest rounded-md uppercase">
+                                {prompt.promptKey}
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-[10px] text-slate-450 mt-0.5">
+                            {prompt.category} • {prompt.copyCount} copies
+                          </p>
                         </div>
-                        <p className="text-[10px] text-slate-450 mt-0.5">
-                          {prompt.category} • {prompt.copyCount} copies
-                        </p>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleStartEdit(prompt)}
+                          className="p-2 border border-slate-200 hover:border-blue-200 hover:bg-blue-50 text-slate-400 hover:text-blue-600 rounded-xl transition-all cursor-pointer"
+                          title="Edit Prompt"
+                        >
+                          <Edit className="w-4 h-4" />
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => onDeletePrompt(prompt.id)}
+                          className="p-2 border border-slate-200 hover:border-rose-200 hover:bg-rose-50 text-slate-400 hover:text-rose-600 rounded-xl transition-all cursor-pointer"
+                          title="Delete Prompt"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
                       </div>
                     </div>
-
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => handleStartEdit(prompt)}
-                        className="p-2 border border-slate-200 hover:border-blue-200 hover:bg-blue-50 text-slate-400 hover:text-blue-600 rounded-xl transition-all cursor-pointer"
-                        title="Edit Prompt"
-                      >
-                        <Edit className="w-4 h-4" />
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => onDeletePrompt(prompt.id)}
-                        className="p-2 border border-slate-200 hover:border-rose-200 hover:bg-rose-50 text-slate-400 hover:text-rose-600 rounded-xl transition-all cursor-pointer"
-                        title="Delete Prompt"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
+                  ))
+                ) : (
+                  <div className="text-center py-10 text-xs text-slate-400 font-semibold italic">
+                    No matching prompts found in database.
                   </div>
-                ))}
+                )}
               </div>
             </div>
           </div>

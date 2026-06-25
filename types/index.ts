@@ -18,6 +18,7 @@ export interface Prompt {
   stars: number; // calculated average star rating
   totalReviews: number;
   promptKey?: string;
+  isCustomizable?: boolean;
 }
 
 export interface Feedback {

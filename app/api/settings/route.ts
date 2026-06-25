@@ -10,7 +10,14 @@ export async function GET() {
     if (!settings) {
       settings = await Settings.create(DEFAULT_SETTINGS);
     }
-    return NextResponse.json({ success: true, data: settings });
+    const settingsObj = settings.toObject();
+    if (process.env.INSTAGRAM_LINK) {
+      settingsObj.instagramLink = process.env.INSTAGRAM_LINK;
+    }
+    if (process.env.INSTAGRAM_USERNAME) {
+      settingsObj.instagramUsername = process.env.INSTAGRAM_USERNAME;
+    }
+    return NextResponse.json({ success: true, data: settingsObj });
   } catch (error: any) {
     console.error("GET settings error:", error);
     return NextResponse.json({ success: false, message: error.message }, { status: 500 });
@@ -30,7 +37,15 @@ export async function PUT(req: NextRequest) {
     }
     await settings.save();
 
-    return NextResponse.json({ success: true, data: settings });
+    const settingsObj = settings.toObject();
+    if (process.env.INSTAGRAM_LINK) {
+      settingsObj.instagramLink = process.env.INSTAGRAM_LINK;
+    }
+    if (process.env.INSTAGRAM_USERNAME) {
+      settingsObj.instagramUsername = process.env.INSTAGRAM_USERNAME;
+    }
+
+    return NextResponse.json({ success: true, data: settingsObj });
   } catch (error: any) {
     console.error("PUT settings error:", error);
     return NextResponse.json({ success: false, message: error.message }, { status: 500 });
