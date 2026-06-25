@@ -10,6 +10,7 @@ import AdminLoginModal from "../components/AdminLoginModal";
 import AdminDashboard from "../components/AdminDashboard";
 import FollowUpModal from "../components/FollowUpModal";
 import Toast from "../components/Toast";
+import { Bot } from "lucide-react";
 
 import { useLocalStorage } from "../hooks/useLocalStorage";
 import {
@@ -24,12 +25,17 @@ import { Prompt, Feedback, CreatorSettings, VisitorMetrics } from "../types";
 
 export default function Home() {
   const [isMounted, setIsMounted] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isError, setIsError] = useState(false);
+  const [errorDetails, setErrorDetails] = useState("");
   
-  // Offline client-side databases
-  const [prompts, setPrompts] = useLocalStorage<Prompt[]>("mk_prompts", INITIAL_PROMPTS);
-  const [feedbacks, setFeedbacks] = useLocalStorage<Feedback[]>("mk_feedbacks", DEFAULT_FEEDBACKS);
-  const [settings, setSettings] = useLocalStorage<CreatorSettings>("mk_settings", DEFAULT_SETTINGS);
-  const [metrics, setMetrics] = useLocalStorage<VisitorMetrics>("mk_metrics", DEFAULT_METRICS);
+  // Real database states
+  const [prompts, setPrompts] = useState<Prompt[]>([]);
+  const [feedbacks, setFeedbacks] = useState<Feedback[]>([]);
+  const [settings, setSettings] = useState<CreatorSettings>(DEFAULT_SETTINGS);
+  const [metrics, setMetrics] = useState<VisitorMetrics>(DEFAULT_METRICS);
+  
+  // Admin auth persists locally for convenience
   const [isAdminLoggedIn, setIsAdminLoggedIn] = useLocalStorage<boolean>("mk_is_admin", false);
 
   // Layout navigation state
@@ -48,55 +54,57 @@ export default function Home() {
   const [isToastOpen, setIsToastOpen] = useState(false);
   const [toastMsg, setToastMsg] = useState("");
 
-  // Trigger mounts and visits tracking safely
+  // Fetch initial data from database endpoints
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      const urlParams = new URLSearchParams(window.location.search);
-      if (urlParams.get("clear") === "1") {
-        window.localStorage.removeItem("mk_prompts");
-        window.localStorage.removeItem("mk_feedbacks");
-        window.localStorage.removeItem("mk_settings");
-        window.localStorage.removeItem("mk_metrics");
-        window.localStorage.removeItem("mk_is_admin");
-        window.location.href = window.location.pathname;
-        return;
+    async function initData() {
+      try {
+        setIsLoading(true);
+
+        const [settingsRes, promptsRes, feedbacksRes, metricsRes] = await Promise.all([
+          fetch("/api/settings").then((r) => r.json()),
+          fetch("/api/prompts").then((r) => r.json()),
+          fetch("/api/feedbacks").then((r) => r.json()),
+          fetch("/api/metrics").then((r) => r.json()),
+        ]);
+
+        if (settingsRes.success && promptsRes.success && feedbacksRes.success && metricsRes.success) {
+          setSettings(settingsRes.data);
+          setPrompts(promptsRes.data);
+          setFeedbacks(feedbacksRes.data);
+          setMetrics(metricsRes.data);
+          setIsError(false);
+        } else {
+          setIsError(true);
+          const errorMsg = settingsRes.message || promptsRes.message || feedbacksRes.message || metricsRes.message || "Failed to load database config";
+          setErrorDetails(errorMsg);
+        }
+
+        // Record a visit metrics log
+        fetch("/api/metrics", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ actionType: "visit" }),
+        })
+          .then((r) => r.json())
+          .then((res) => {
+            if (res.success) setMetrics(res.data);
+          })
+          .catch((e) => console.warn("Failed to register page visit:", e));
+
+      } catch (err: any) {
+        console.error("Failed to load backend DB data:", err);
+        setIsError(true);
+        setErrorDetails(err.message || "Connection failed");
+      } finally {
+        setIsLoading(false);
+        setIsMounted(true);
       }
     }
 
-    const timer = setTimeout(() => {
-      setIsMounted(true);
-    }, 0);
-    
-    // Increment total visit count on entry
-    try {
-      const storedMetrics = window.localStorage.getItem("mk_metrics");
-      if (storedMetrics) {
-        const parsed = JSON.parse(storedMetrics) as VisitorMetrics;
-        const updated = {
-          ...parsed,
-          totalVisits: (parsed.totalVisits || 0) + 1,
-        };
-        window.localStorage.setItem("mk_metrics", JSON.stringify(updated));
-        setMetrics(updated);
-      } else {
-        const updated = {
-          ...DEFAULT_METRICS,
-          totalVisits: DEFAULT_METRICS.totalVisits + 1,
-        };
-        window.localStorage.setItem("mk_metrics", JSON.stringify(updated));
-        setMetrics(updated);
-      }
-    } catch (e) {
-      console.warn("Failed to increment page visit metrics:", e);
-    }
-
-    return () => clearTimeout(timer);
-  }, [setMetrics]);
-
-
+    initData();
+  }, []);
 
   // Synchronize URL hash with activeView for browser back/forward navigation
-  // Logging out the admin session if they click the browser back button to leave the dashboard.
   useEffect(() => {
     const handleHashChange = () => {
       const hash = window.location.hash;
@@ -135,13 +143,12 @@ export default function Home() {
       }
     } else {
       if (window.location.hash === "#dashboard") {
-        // Remove hash from URL without reloading or creating duplicate history
         window.history.replaceState(null, "", window.location.pathname + window.location.search);
       }
     }
   }, [activeView, isAdminLoggedIn]);
 
-  // Force activeView and hash to dashboard if logged in as admin (local storage lock)
+  // Force activeView and hash to dashboard if logged in as admin
   useEffect(() => {
     if (isMounted && isAdminLoggedIn) {
       setTimeout(() => {
@@ -190,6 +197,7 @@ export default function Home() {
     };
   }, [isDetailsOpen, isCustomizerOpen, isFeedbackOpen, isLoginOpen, isFollowUpOpen]);
 
+  // If not mounted yet (SSR phase), render basic loading shell to protect hydration
   if (!isMounted) {
     return (
       <div className="min-h-screen bg-slate-950 flex items-center justify-center text-slate-500 font-bold text-xs select-none">
@@ -198,42 +206,43 @@ export default function Home() {
     );
   }
 
-  // Handle default copy trigger
+  // Handle prompt copy trigger
   const handleCopy = (text: string) => {
     if (typeof navigator !== "undefined" && navigator.clipboard) {
       navigator.clipboard.writeText(text)
         .then(() => {
           if (selectedPrompt) {
-            // 1. Increment copies in prompts
-            setPrompts((prev) =>
-              prev.map((p) =>
-                p.id === selectedPrompt.id
-                  ? { ...p, copyCount: p.copyCount + 1 }
-                  : p
-              )
-            );
-
-            // 2. Append history date log
-            const today = new Date().toISOString().split("T")[0];
-            setMetrics((prev) => ({
-              ...prev,
-              totalCopies: prev.totalCopies + 1,
-              copiesHistory: [
-                {
-                  date: today,
-                  promptTitle: selectedPrompt.title,
-                  category: selectedPrompt.category,
-                },
-                ...prev.copiesHistory.slice(0, 19),
-              ],
-            }));
+            // Post copy transaction to metrics endpoint
+            fetch("/api/metrics", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                actionType: "copy",
+                promptTitle: selectedPrompt.title,
+                category: selectedPrompt.category,
+                promptId: selectedPrompt.id,
+              }),
+            })
+              .then((r) => r.json())
+              .then((res) => {
+                if (res.success) {
+                  setMetrics(res.data);
+                  // Refresh prompts copy counts
+                  fetch("/api/prompts")
+                    .then((r) => r.json())
+                    .then((pData) => {
+                      if (pData.success) setPrompts(pData.data);
+                    });
+                }
+              })
+              .catch((err) => console.warn("Failed to log copy metrics:", err));
           }
 
-          // 3. Open toast
+          // Open toast
           setToastMsg("Prompt copied to clipboard!");
           setIsToastOpen(true);
 
-          // 4. Trigger Instagram popup 350ms later
+          // Trigger Instagram popup 350ms later
           setTimeout(() => {
             setIsFollowUpOpen(true);
           }, 350);
@@ -260,81 +269,154 @@ export default function Home() {
 
   // Add customized prompt (admin)
   const handleAddPrompt = (newPromptData: Omit<Prompt, "id" | "copyCount" | "stars" | "totalReviews">) => {
-    const newPrompt: Prompt = {
-      ...newPromptData,
-      id: `prompt-${Date.now()}`,
-      copyCount: 0,
-      stars: 5.0,
-      totalReviews: 0,
-    };
-    setPrompts((prev) => [newPrompt, ...prev]);
+    fetch("/api/prompts", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(newPromptData),
+    })
+      .then((r) => r.json())
+      .then((res) => {
+        if (res.success) {
+          setPrompts((prev) => [res.data, ...prev]);
+          setToastMsg("New prompt created successfully!");
+          setIsToastOpen(true);
+        } else {
+          alert("Failed to create prompt: " + res.message);
+        }
+      })
+      .catch((err) => {
+        console.error("Add prompt error:", err);
+        alert("Failed to save prompt. Please try again.");
+      });
   };
 
   // Delete prompt (admin)
   const handleDeletePrompt = (id: string) => {
     if (confirm("Are you sure you want to delete this prompt from the database?")) {
-      setPrompts((prev) => prev.filter((p) => p.id !== id));
+      fetch(`/api/prompts/${id}`, {
+        method: "DELETE",
+      })
+        .then((r) => r.json())
+        .then((res) => {
+          if (res.success) {
+            setPrompts((prev) => prev.filter((p) => p.id !== id));
+            setToastMsg("Prompt removed successfully.");
+            setIsToastOpen(true);
+          } else {
+            alert("Delete failed: " + res.message);
+          }
+        })
+        .catch((err) => {
+          console.error("Delete prompt error:", err);
+          alert("Failed to delete. Please try again.");
+        });
     }
   };
 
   // Update prompt (admin)
   const handleUpdatePrompt = (updatedPrompt: Prompt) => {
-    setPrompts((prev) =>
-      prev.map((p) => (p.id === updatedPrompt.id ? updatedPrompt : p))
-    );
-    setToastMsg("Prompt updated successfully!");
-    setIsToastOpen(true);
+    fetch(`/api/prompts/${updatedPrompt.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(updatedPrompt),
+    })
+      .then((r) => r.json())
+      .then((res) => {
+        if (res.success) {
+          setPrompts((prev) =>
+            prev.map((p) => (p.id === updatedPrompt.id ? res.data : p))
+          );
+          setToastMsg("Prompt updated successfully!");
+          setIsToastOpen(true);
+        } else {
+          alert("Update failed: " + res.message);
+        }
+      })
+      .catch((err) => {
+        console.error("Update prompt error:", err);
+        alert("Failed to update. Please try again.");
+      });
   };
 
   // Submit rating feedbacks
   const handleSubmitFeedback = (newReview: Omit<Feedback, "id" | "date">) => {
-    const review: Feedback = {
-      ...newReview,
-      id: `review-${Date.now()}`,
-      date: new Date().toISOString(),
-    };
-
-    setFeedbacks((prev) => [review, ...prev]);
-
-    // If review comment contains prompt title, recalculate its stars
-    if (selectedPrompt) {
-      setPrompts((prev) =>
-        prev.map((p) => {
-          if (p.id === selectedPrompt.id) {
-            const currentTotal = p.totalReviews;
-            const currentStars = p.stars;
-            const updatedTotal = currentTotal + 1;
-            const updatedStars = parseFloat(
-              ((currentStars * currentTotal + newReview.rating) / updatedTotal).toFixed(1)
-            );
-
-            return {
-              ...p,
-              totalReviews: updatedTotal,
-              stars: updatedStars,
-            };
-          }
-          return p;
-        })
-      );
-    }
-
-    setToastMsg("Thank you for your rating feedback!");
-    setIsToastOpen(true);
+    fetch("/api/feedbacks", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(newReview),
+    })
+      .then((r) => r.json())
+      .then((res) => {
+        if (res.success) {
+          setFeedbacks((prev) => [res.data, ...prev]);
+          // Refresh prompts to show new average stars rating
+          fetch("/api/prompts")
+            .then((r) => r.json())
+            .then((pData) => {
+              if (pData.success) setPrompts(pData.data);
+            });
+          setToastMsg("Thank you for your rating feedback!");
+          setIsToastOpen(true);
+        } else {
+          alert("Feedback submit failed: " + res.message);
+        }
+      })
+      .catch((err) => {
+        console.error("Submit feedback error:", err);
+        alert("Failed to submit feedback. Please try again.");
+      });
   };
 
   // Delete feedbacks (admin)
   const handleDeleteAllFeedback = () => {
     if (confirm("Are you sure you want to purge all follower review submissions?")) {
-      setFeedbacks([]);
+      fetch("/api/feedbacks", {
+        method: "DELETE",
+      })
+        .then((r) => r.json())
+        .then((res) => {
+          if (res.success) {
+            setFeedbacks([]);
+            setToastMsg("All community reviews purged.");
+            setIsToastOpen(true);
+          } else {
+            alert("Feedback purge failed: " + res.message);
+          }
+        })
+        .catch((err) => {
+          console.error("Purge feedbacks error:", err);
+          alert("Failed to purge reviews. Please try again.");
+        });
     }
+  };
+
+  // Update Settings (admin)
+  const handleUpdateSettings = (newSettings: CreatorSettings) => {
+    fetch("/api/settings", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(newSettings),
+    })
+      .then((r) => r.json())
+      .then((res) => {
+        if (res.success) {
+          setSettings(res.data);
+          setToastMsg("Creator settings updated successfully!");
+          setIsToastOpen(true);
+        } else {
+          alert("Settings update failed: " + res.message);
+        }
+      })
+      .catch((err) => {
+        console.error("Update settings error:", err);
+        alert("Failed to save settings. Please try again.");
+      });
   };
 
   return (
     <>
       {/* Background decoration (Responsive Image Background) */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none select-none z-0">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src="/images/userscreenbg.png"
           alt="Background"
@@ -355,32 +437,78 @@ export default function Home() {
         />
 
         {activeView === "showcase" || !isAdminLoggedIn ? (
-          <ShowcaseGrid
-            prompts={prompts}
-            onSelectPrompt={(prompt) => {
-              setSelectedPrompt(prompt);
-              setIsDetailsOpen(true);
-            }}
-            onTriggerLogin={() => setIsLoginOpen(true)}
-          />
+          isError ? (
+            <div className="flex-1 w-full max-w-7xl mx-auto px-6 py-12 flex flex-col items-center justify-center text-center">
+              <div className="max-w-md bg-white border border-slate-200/80 rounded-3xl p-8 shadow-sm space-y-4">
+                <div className="w-10 h-10 rounded-full bg-rose-50 text-rose-500 flex items-center justify-center mx-auto">
+                  <Bot className="w-5 h-5" />
+                </div>
+                <h3 className="text-base font-extrabold text-slate-900 font-apple">Database Connection Failed</h3>
+                <p className="text-slate-500 text-xs leading-normal">
+                  Could not load prompts from the database cluster. Please verify your MongoDB Network Access / IP Whitelisting rules.
+                </p>
+                {errorDetails && (
+                  <div className="p-3.5 bg-slate-50 border border-slate-100 rounded-xl font-mono text-[9px] text-slate-500 text-left max-h-24 overflow-y-auto break-all">
+                    {errorDetails}
+                  </div>
+                )}
+                <button
+                  onClick={() => window.location.reload()}
+                  className="w-full py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl transition-colors cursor-pointer"
+                >
+                  Retry Connection
+                </button>
+              </div>
+            </div>
+          ) : (
+            <ShowcaseGrid
+              prompts={prompts}
+              onSelectPrompt={(prompt) => {
+                setSelectedPrompt(prompt);
+                setIsDetailsOpen(true);
+              }}
+              onTriggerLogin={() => setIsLoginOpen(true)}
+              isLoading={isLoading}
+            />
+          )
         ) : (
-          <AdminDashboard
-            prompts={prompts}
-            feedbacks={feedbacks}
-            settings={settings}
-            metrics={metrics}
-            onAddPrompt={handleAddPrompt}
-            onDeletePrompt={handleDeletePrompt}
-            onUpdatePrompt={handleUpdatePrompt}
-            onUpdateSettings={setSettings}
-            onDeleteAllFeedback={handleDeleteAllFeedback}
-            isSidebarOpen={isAdminSidebarOpen}
-            onSidebarClose={() => setIsAdminSidebarOpen(false)}
-            onLogout={() => {
-              setIsAdminLoggedIn(false);
-              setActiveView("showcase");
-            }}
-          />
+          isError ? (
+            <div className="flex-1 w-full max-w-7xl mx-auto px-6 py-12 flex flex-col items-center justify-center text-center">
+              <div className="max-w-md bg-white border border-slate-200/80 rounded-3xl p-8 shadow-sm space-y-4">
+                <div className="w-10 h-10 rounded-full bg-rose-50 text-rose-500 flex items-center justify-center mx-auto">
+                  <Bot className="w-5 h-5" />
+                </div>
+                <h3 className="text-base font-extrabold text-slate-900 font-apple">Admin Dashboard Blocked</h3>
+                <p className="text-slate-500 text-xs leading-normal">
+                  Mongoose was unable to connect to the database. Accessing dashboard metrics requires a database connection.
+                </p>
+                <button
+                  onClick={() => window.location.reload()}
+                  className="w-full py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl transition-colors cursor-pointer"
+                >
+                  Retry Connection
+                </button>
+              </div>
+            </div>
+          ) : (
+            <AdminDashboard
+              prompts={prompts}
+              feedbacks={feedbacks}
+              settings={settings}
+              metrics={metrics}
+              onAddPrompt={handleAddPrompt}
+              onDeletePrompt={handleDeletePrompt}
+              onUpdatePrompt={handleUpdatePrompt}
+              onUpdateSettings={handleUpdateSettings}
+              onDeleteAllFeedback={handleDeleteAllFeedback}
+              isSidebarOpen={isAdminSidebarOpen}
+              onSidebarClose={() => setIsAdminSidebarOpen(false)}
+              onLogout={() => {
+                setIsAdminLoggedIn(false);
+                setActiveView("showcase");
+              }}
+            />
+          )
         )}
 
         {/* Footer Credit */}

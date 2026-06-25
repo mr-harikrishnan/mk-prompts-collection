@@ -23,126 +23,166 @@ export default function PromptCustomizer({
   onClose,
   onCopy,
 }: PromptCustomizerProps) {
-  // Key-value store for variable inputs
-  const [inputs, setInputs] = useState<{ [key: string]: string }>({});
   const [messages, setMessages] = useState<Message[]>([]);
-  const [activeField, setActiveField] = useState<string | null>(null);
+  const [userText, setUserText] = useState("");
+  const [isThinking, setIsThinking] = useState(false);
+  const [compiledText, setCompiledText] = useState<string | null>(null);
+  const [isComplete, setIsComplete] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Initialize variables with default values when prompt changes
+  // Initialize conversation when prompt changes or customizer opens
   useEffect(() => {
-    if (prompt) {
-      const initialInputs: { [key: string]: string } = {};
-      (prompt.variables || []).forEach((v) => {
-        initialInputs[v.name] = v.defaultValue;
-      });
+    if (prompt && isOpen) {
+      setMessages([
+        {
+          id: "initial-msg",
+          sender: "bot",
+          text: `Hello! I am your AI Prompt Consultant. Let's customize your prompt: **${prompt.title}**.\n\nFirst, let me analyze this prompt to see what details we can optimize for you...`,
+        },
+      ]);
+      setCompiledText(null);
+      setIsComplete(false);
+      setUserText("");
+      setIsCopied(false);
 
-      const botMsg = `Hello! I'm your MK Art Assistant. Let's customize "${prompt.title}" together. \n\nI've populated the default values for you. You can adjust the parameters in the fields below or click them to get my custom design tips!`;
-      
+      // Trigger initial analysis call
       const timer = setTimeout(() => {
-        setInputs(initialInputs);
-        setMessages([
-          {
-            id: "msg-1",
-            sender: "bot",
-            text: botMsg,
-          },
-        ]);
-        setIsCopied(false);
-      }, 0);
+        getAIResponse([], "");
+      }, 800);
+
       return () => clearTimeout(timer);
     }
-  }, [prompt]);
+  }, [prompt, isOpen]);
 
   // Scroll chat to bottom
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  }, [messages, isThinking]);
 
   if (!isOpen || !prompt) return null;
 
-  // Handle inputs changing
-  const handleInputChange = (varName: string, value: string) => {
-    setInputs((prev) => ({
-      ...prev,
-      [varName]: value,
-    }));
-  };
+  // Retrieve response from the Gemini AI endpoint
+  const getAIResponse = async (history: Message[], latestAnswer: string, forceSkip: boolean = false) => {
+    if (!prompt) return;
+    setIsThinking(true);
 
-  // Chat message response when user selects or focuses on a field
-  const handleFieldFocus = (varName: string, label: string) => {
-    if (activeField === varName) return;
-    setActiveField(varName);
+    try {
+      const res = await fetch("/api/ai", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          template: prompt.template,
+          title: prompt.title,
+          messages: history,
+          latestAnswer,
+          skipAndGenerate: forceSkip,
+        }),
+      });
 
-    // Bot suggests creative ideas based on the variable
-    let tip = `Tell me what you'd like to use for the "${label}".`;
-    if (varName.includes("name")) {
-      tip = `For names, try using classic cinematic character names like "Arthur", "Mia", or "Clara" to invoke beautiful aesthetic features.`;
-    } else if (varName.includes("location")) {
-      tip = `Locations define the ambient backdrop! Try atmospheric spots like "Kyoto cherry blossom gardens", "a rainy cyberpunk street in Neo-Seoul", or "a misty Scandinavian cabin".`;
-    } else if (varName.includes("atmosphere") || varName.includes("weather") || varName.includes("effect")) {
-      tip = `Atmosphere sets the lighting mood! Try choices like "golden hour sunbeams", "foggy twilight with amber streetlights", or "cinematic moody volumetric neon lights".`;
-    } else if (varName.includes("subject") || varName.includes("style")) {
-      tip = `This defines the central artistic style or structure. Try keywords like "abstract minimalist fine line art", "mid-century modern gouache illustration", or "hyper-detailed 4k poster".`;
-    } else if (varName.includes("color") || varName.includes("tone")) {
-      tip = `Color palettes invoke emotional response! Select harmonious schemes like "sage green and warm oatmeal", "deep indigo with touches of sunset gold", or "monochrome slate grey with electric orange outlines".`;
-    }
+      const responseData = await res.json();
+      if (responseData.success && responseData.data) {
+        const { isComplete: aiComplete, message, customizedPrompt } = responseData.data;
 
-    setMessages((prev) => [
-      ...prev,
-      {
-        id: `tip-${Date.now()}`,
-        sender: "bot",
-        text: `🎨 Assistant Tip for ${label}: ${tip}`,
-      },
-    ]);
-  };
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: `bot-${Date.now()}`,
+            sender: "bot",
+            text: message,
+          },
+        ]);
 
-  // Compile the final prompt string
-  const compiledPrompt = (() => {
-    let result = prompt.template;
-    (prompt.variables || []).forEach((v) => {
-      const val = inputs[v.name] || v.defaultValue;
-      result = result.replace(`{${v.name}}`, val);
-    });
-    return result;
-  })();
-
-  // Render the compiled template inside JSX, highlighting variable placeholders
-  const renderCompiledPreview = () => {
-    const parts = prompt.template.split(/(\{.*?\})/g);
-    return parts.map((part, index) => {
-      // check if this part is a variable placeholder like "{boy_name}"
-      if (part.startsWith("{") && part.endsWith("}")) {
-        const varName = part.substring(1, part.length - 1);
-        const variable = (prompt.variables || []).find((v) => v.name === varName);
-        const value = inputs[varName] !== undefined ? inputs[varName] : (variable?.defaultValue || "");
-        
-        return (
-          <span
-            key={index}
-            className={`inline-block px-1.5 py-0.5 rounded-md font-bold text-xs border transition-colors duration-200 ${
-              inputs[varName] !== variable?.defaultValue
-                ? "bg-orange-50 border-orange-200 text-orange-600 shadow-sm"
-                : "bg-blue-50 border-blue-200 text-blue-600"
-            }`}
-          >
-            {value || `[${variable?.label}]`}
-          </span>
-        );
+        if (aiComplete) {
+          setIsComplete(true);
+          setCompiledText(customizedPrompt);
+        }
+      } else {
+        throw new Error(responseData.message || "Failed to get AI consultant response");
       }
-      return <React.Fragment key={index}>{part}</React.Fragment>;
-    });
+    } catch (error) {
+      console.error(error);
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `bot-err-${Date.now()}`,
+          sender: "bot",
+          text: "I encountered a connection error. Please try sending your reply again or click 'Skip & Generate' to compile.",
+        },
+      ]);
+    } finally {
+      setIsThinking(false);
+    }
+  };
+
+  // Handle user send message
+  const handleSendMessage = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!userText.trim() || isThinking || isComplete) return;
+
+    const userMessage: Message = {
+      id: `user-${Date.now()}`,
+      sender: "user",
+      text: userText.trim(),
+    };
+
+    setMessages((prev) => [...prev, userMessage]);
+    const currentAnswer = userText.trim();
+    setUserText("");
+
+    // Trigger API fetch with updated history (including user message)
+    getAIResponse([...messages, userMessage], currentAnswer);
+  };
+
+  // Skip step-by-step questions and compile prompt immediately
+  const handleSkipAndGenerate = () => {
+    if (isThinking || isComplete) return;
+
+    const userMessage: Message = {
+      id: `user-skip-${Date.now()}`,
+      sender: "user",
+      text: "Please skip remaining questions and generate the prompt now.",
+    };
+
+    setMessages((prev) => [...prev, userMessage]);
+
+    getAIResponse([...messages, userMessage], "", true);
   };
 
   const handleCopyClick = () => {
-    onCopy(compiledPrompt);
-    setIsCopied(true);
-    setTimeout(() => {
-      setIsCopied(false);
-      onClose(); // close customizer
-    }, 800);
+    if (compiledText) {
+      onCopy(compiledText);
+      setIsCopied(true);
+      setTimeout(() => {
+        setIsCopied(false);
+        onClose();
+      }, 800);
+    }
+  };
+
+  const renderPromptOutput = () => {
+    if (isComplete && compiledText) {
+      return (
+        <div className="relative bg-slate-50/50 border border-emerald-250/60 rounded-3xl p-6 font-mono text-xs sm:text-sm text-slate-800 leading-relaxed select-all overflow-y-auto flex-1 animate-in fade-in duration-300">
+          <span className="absolute top-2.5 right-3 bg-emerald-100/90 text-emerald-700 border border-emerald-200 text-[9px] font-bold px-2 py-0.5 rounded-full select-none">
+            AI Customized
+          </span>
+          <div className="whitespace-pre-wrap">{compiledText}</div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="relative bg-slate-50/50 border border-slate-200/60 rounded-3xl p-6 font-mono text-xs sm:text-sm text-slate-400 leading-relaxed overflow-y-auto flex-1 flex flex-col items-center justify-center text-center">
+        <Bot className="w-8 h-8 text-slate-300 mb-3 animate-pulse" />
+        <span className="font-bold text-slate-500 mb-1">Consultation in Progress</span>
+        <p className="max-w-[280px] text-[10px] text-slate-405 leading-normal">
+          Answer the consultant's questions in the chat to personalize this prompt. The finalized prompt will compile here.
+        </p>
+      </div>
+    );
   };
 
   return (
@@ -155,7 +195,6 @@ export default function PromptCustomizer({
 
       {/* Modal Container */}
       <div className="relative w-full max-w-5xl bg-white rounded-3xl border border-slate-200/80 shadow-2xl overflow-hidden flex flex-col max-h-[90vh] md:max-h-[95vh] md:h-[80vh] z-10 animate-in fade-in zoom-in-95 duration-200">
-        
         {/* Close Button */}
         <button
           onClick={onClose}
@@ -166,7 +205,7 @@ export default function PromptCustomizer({
 
         {/* Scrollable Container Wrapper for mobile view */}
         <div className="flex-1 overflow-y-auto md:overflow-hidden flex flex-col md:flex-row w-full h-full">
-          {/* LEFT COLUMN: Chatbot Assistant and Input Fields Form */}
+          {/* LEFT COLUMN: Chatbot Assistant */}
           <div className="w-full md:w-[55%] flex flex-col border-b md:border-b-0 md:border-r border-slate-200/60 h-auto md:h-full bg-slate-50/50">
             {/* Assistant Header */}
             <div className="px-6 py-4 bg-white border-b border-slate-200/60 flex items-center gap-2.5 shrink-0">
@@ -175,17 +214,17 @@ export default function PromptCustomizer({
               </div>
               <div>
                 <h3 className="text-sm font-bold text-slate-800 leading-none">
-                  MK AI Prompt Assistant
+                  MK AI Prompt Consultant
                 </h3>
                 <span className="text-[10px] font-semibold text-emerald-500 flex items-center gap-1 mt-0.5">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                  Active Guide
+                  Active Interview Flow
                 </span>
               </div>
             </div>
 
             {/* Chat Stream Log */}
-            <div className="p-6 space-y-4 h-auto md:flex-1 md:overflow-y-auto">
+            <div className="p-6 space-y-4 flex-1 overflow-y-auto min-h-[300px] md:min-h-0">
               {messages.map((msg) => (
                 <div
                   key={msg.id}
@@ -209,37 +248,83 @@ export default function PromptCustomizer({
                   </div>
                 </div>
               ))}
+
+              {isThinking && (
+                <div className="flex gap-3 max-w-[85%] mr-auto">
+                  <div className="w-7 h-7 rounded-full bg-orange-100 text-orange-500 flex items-center justify-center shrink-0 shadow-inner">
+                    <Bot className="w-3.5 h-3.5" />
+                  </div>
+                  <div className="p-3.5 rounded-2xl bg-white border border-slate-200/50 text-slate-700 shadow-sm rounded-tl-none flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
+                    <span className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
+                    <span className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+                  </div>
+                </div>
+              )}
+
               <div ref={messagesEndRef} />
             </div>
 
-            {/* Variables Input Form Panel */}
-            <div className="bg-white border-t border-slate-200/60 p-6 shrink-0 space-y-4">
-              <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">
-                Parameters & Input Settings
-              </h4>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {(prompt.variables || []).map((variable) => (
-                  <div key={variable.name} className="flex flex-col">
-                    <label className="text-xs font-semibold text-slate-700 mb-1.5 flex items-center justify-between">
-                      {variable.label}
-                      {activeField === variable.name && (
-                        <span className="text-[9px] font-bold text-orange-500 animate-pulse">
-                          active
-                        </span>
-                      )}
-                    </label>
-                    <input
-                      type="text"
-                      value={inputs[variable.name] || ""}
-                      onFocus={() => handleFieldFocus(variable.name, variable.label)}
-                      onChange={(e) => handleInputChange(variable.name, e.target.value)}
-                      placeholder={variable.defaultValue}
-                      className="px-3.5 py-2.5 bg-slate-50 border border-slate-200/70 rounded-xl text-slate-800 text-xs font-medium focus:outline-none focus:bg-white focus:border-orange-500 transition-all duration-200"
-                    />
-                  </div>
-                ))}
+            {/* User Message Input Form Panel */}
+            <form onSubmit={handleSendMessage} className="bg-white border-t border-slate-200/60 p-6 shrink-0 flex flex-col gap-3">
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={userText}
+                  onChange={(e) => setUserText(e.target.value)}
+                  disabled={isThinking || isComplete}
+                  placeholder={
+                    isComplete
+                      ? "Conversation complete!"
+                      : isThinking
+                      ? "Consultant is thinking..."
+                      : "Type your response here..."
+                  }
+                  className="flex-1 px-3.5 py-2.5 bg-slate-50 border border-slate-200/70 rounded-xl text-slate-800 text-xs font-medium focus:outline-none focus:bg-white focus:border-orange-500 transition-all duration-200"
+                />
+                <button
+                  type="submit"
+                  disabled={isThinking || isComplete || !userText.trim()}
+                  className="px-5 bg-slate-900 text-white rounded-xl font-bold text-xs hover:bg-slate-850 disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer active:scale-95"
+                >
+                  Send
+                </button>
               </div>
-            </div>
+
+              {!isComplete && (
+                <div className="flex items-center justify-between mt-1">
+                  <button
+                    type="button"
+                    onClick={handleSkipAndGenerate}
+                    disabled={isThinking}
+                    className="text-[10px] font-bold text-orange-500 hover:text-orange-650 transition-colors flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                  >
+                    ⚡ Skip & Generate Prompt
+                  </button>
+                  {messages.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMessages([
+                          {
+                            id: "initial-msg",
+                            sender: "bot",
+                            text: `Let's restart! Analyzing prompt template **${prompt.title}**...`,
+                          },
+                        ]);
+                        setCompiledText(null);
+                        setIsComplete(false);
+                        setUserText("");
+                        setTimeout(() => getAIResponse([], ""), 850);
+                      }}
+                      className="text-[10px] font-semibold text-slate-400 hover:text-slate-655 cursor-pointer"
+                    >
+                      Reset
+                    </button>
+                  )}
+                </div>
+              )}
+            </form>
           </div>
 
           {/* RIGHT COLUMN: Interactive Live Prompt Visualizer */}
@@ -248,25 +333,25 @@ export default function PromptCustomizer({
             <div className="px-6 py-4 border-b border-slate-200/60 flex items-center justify-between shrink-0">
               <span className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
                 <Sparkles className="w-3.5 h-3.5 text-orange-500" />
-                Live Compiled Prompt
+                Live Customized Prompt
               </span>
             </div>
 
             {/* Compiled Output Viewport */}
             <div className="p-6 sm:p-8 flex flex-col justify-between h-auto md:h-full md:flex-1">
-              <div className="relative bg-slate-50/50 border border-slate-200/60 rounded-3xl p-6 font-mono text-xs sm:text-sm text-slate-800 leading-relaxed select-all min-h-[150px] md:min-h-0 overflow-y-auto md:flex-1">
-                {renderCompiledPreview()}
-              </div>
+              {renderPromptOutput()}
 
               {/* Custom copy panel */}
               <div className="mt-6 pt-4 border-t border-slate-100 shrink-0">
                 <button
                   onClick={handleCopyClick}
-                  disabled={isCopied}
+                  disabled={!isComplete || isCopied}
                   className={`w-full flex items-center justify-center gap-2 px-5 py-4 font-bold text-sm rounded-2xl transition-all duration-300 cursor-pointer shadow-sm ${
                     isCopied
                       ? "bg-emerald-500 text-white"
-                      : "bg-slate-900 hover:bg-slate-800 text-white active:scale-[0.98] hover:shadow-slate-900/10"
+                      : isComplete
+                      ? "bg-slate-900 hover:bg-slate-800 text-white active:scale-[0.98] hover:shadow-slate-900/10"
+                      : "bg-slate-100 text-slate-400 cursor-not-allowed"
                   }`}
                 >
                   {isCopied ? (
@@ -288,7 +373,6 @@ export default function PromptCustomizer({
             </div>
           </div>
         </div>
-
       </div>
     </div>
   );

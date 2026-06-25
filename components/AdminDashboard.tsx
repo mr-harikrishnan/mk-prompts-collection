@@ -53,6 +53,7 @@ export default function AdminDashboard({
   const [activeTab, setActiveTab] = useState<TabType>("analytics");
   const [isFormCollapsed, setIsFormCollapsed] = useState(true);
   const [editingPromptId, setEditingPromptId] = useState<string | null>(null);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
 
   // Prevent background scroll when mobile sidebar drawer is open
   useEffect(() => {
@@ -142,8 +143,29 @@ export default function AdminDashboard({
     const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
-      reader.onloadend = () => {
-        setNewImageBase64(reader.result as string);
+      reader.onloadend = async () => {
+        const base64Data = reader.result as string;
+        setIsUploadingImage(true);
+        try {
+          const res = await fetch("/api/upload", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ image: base64Data }),
+          });
+          const data = await res.json();
+          if (data.success) {
+            setNewImageBase64(data.secure_url);
+          } else {
+            alert("Image upload failed: " + data.message);
+          }
+        } catch (error) {
+          console.error("Upload error:", error);
+          alert("Image upload failed. Please try again.");
+        } finally {
+          setIsUploadingImage(false);
+        }
       };
       reader.readAsDataURL(file);
     }
@@ -638,7 +660,11 @@ export default function AdminDashboard({
                         className="w-full flex items-center justify-center gap-2 px-3.5 py-2.5 bg-white border border-dashed border-slate-200/80 rounded-xl hover:border-slate-350 hover:bg-slate-50 transition-colors cursor-pointer text-xs font-semibold text-slate-600"
                       >
                         <Upload className="w-4 h-4 text-slate-400" />
-                        {newImageBase64 ? "Change Illustration File" : "Upload PNG/JPG File"}
+                        {isUploadingImage
+                          ? "Uploading to Cloudinary..."
+                          : newImageBase64
+                          ? "Change Illustration File"
+                          : "Upload PNG/JPG File"}
                       </label>
                     </div>
                   </div>
@@ -779,7 +805,7 @@ export default function AdminDashboard({
                       {/* Thumbnail */}
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
-                        src="/images/tempcreatedimage.png"
+                        src={prompt.image}
                         alt={prompt.title}
                         className="w-12 h-12 rounded-xl object-cover border border-slate-200/50 shrink-0"
                       />

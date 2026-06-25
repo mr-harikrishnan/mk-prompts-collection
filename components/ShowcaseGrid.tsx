@@ -8,6 +8,7 @@ interface ShowcaseGridProps {
   prompts: Prompt[];
   onSelectPrompt: (prompt: Prompt) => void;
   onTriggerLogin: () => void;
+  isLoading?: boolean;
 }
 
 const CATEGORIES = [
@@ -19,7 +20,30 @@ const CATEGORIES = [
   "Customizable",
 ];
 
-export default function ShowcaseGrid({ prompts, onSelectPrompt, onTriggerLogin }: ShowcaseGridProps) {
+const SkeletonCard = () => (
+  <div className="group bg-white rounded-3xl border border-slate-200/50 overflow-hidden flex flex-col shadow-sm">
+    <div className="relative aspect-[768/1376] bg-slate-100 animate-pulse border-b border-slate-100 flex items-center justify-center">
+      <div className="w-10 h-10 rounded-full bg-slate-250/20" />
+    </div>
+    <div className="p-6 flex-1 flex flex-col justify-between space-y-4">
+      <div>
+        <div className="flex gap-1.5 mb-3">
+          <div className="w-12 h-3.5 bg-slate-100 animate-pulse rounded-md" />
+          <div className="w-16 h-3.5 bg-slate-100 animate-pulse rounded-md" />
+        </div>
+        <div className="w-3/4 h-5 bg-slate-200/50 animate-pulse rounded-md mb-2" />
+        <div className="w-full h-3 bg-slate-100 animate-pulse rounded-md mb-1.5" />
+        <div className="w-5/6 h-3 bg-slate-100 animate-pulse rounded-md" />
+      </div>
+      <div className="flex items-center justify-between pt-4 border-t border-slate-100">
+        <div className="w-12 h-4 bg-slate-100 animate-pulse rounded-md" />
+        <div className="w-20 h-8 bg-slate-200/60 animate-pulse rounded-xl" />
+      </div>
+    </div>
+  </div>
+);
+
+export default function ShowcaseGrid({ prompts, onSelectPrompt, onTriggerLogin, isLoading = false }: ShowcaseGridProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All Collection");
@@ -97,7 +121,7 @@ export default function ShowcaseGrid({ prompts, onSelectPrompt, onTriggerLogin }
       </div>
 
       {/* Search bar */}
-      <div className="sticky top-[114px] sm:top-[78px] z-20 bg-slate-50/95 backdrop-blur-md py-4 mb-10 -mx-6 px-6 border-b border-slate-200/10">
+      <div className="sticky top-[114px] sm:top-[78px] z-25 bg-slate-50/95 backdrop-blur-md py-4 mb-10 -mx-6 px-6 border-b border-slate-200/10">
         <div className="relative w-full">
           <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none text-slate-400">
             <Search className="w-4 h-4" />
@@ -120,7 +144,13 @@ export default function ShowcaseGrid({ prompts, onSelectPrompt, onTriggerLogin }
       </div>
 
       {/* Showcase Grid */}
-      {filteredPrompts.length > 0 ? (
+      {isLoading ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+          {Array.from({ length: 4 }).map((_, idx) => (
+            <SkeletonCard key={idx} />
+          ))}
+        </div>
+      ) : filteredPrompts.length > 0 ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
           {filteredPrompts.map((prompt) => (
             <div
@@ -131,7 +161,7 @@ export default function ShowcaseGrid({ prompts, onSelectPrompt, onTriggerLogin }
               <div className="relative aspect-[768/1376] bg-slate-100 overflow-hidden border-b border-slate-100">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src="/images/tempcreatedimage.png"
+                  src={prompt.image}
                   alt={prompt.title}
                   className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                   loading="lazy"

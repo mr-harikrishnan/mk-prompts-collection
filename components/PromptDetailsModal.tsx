@@ -59,7 +59,7 @@ export default function PromptDetailsModal({
           <div className="relative aspect-[768/1376] max-h-[400px] w-auto mx-auto rounded-2xl overflow-hidden bg-slate-100 border border-slate-150 mb-6 flex items-center justify-center">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src="/images/tempcreatedimage.png"
+              src={prompt.image}
               alt={prompt.title}
               className="w-full h-full object-cover"
             />
