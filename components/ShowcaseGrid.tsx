@@ -156,7 +156,8 @@ export default function ShowcaseGrid({ prompts, onSelectPrompt, onTriggerLogin, 
           {filteredPrompts.map((prompt) => (
             <div
               key={prompt.id}
-              className="group bg-white rounded-3xl border border-slate-200/50 hover:border-slate-300/80 overflow-hidden flex flex-col transition-apple hover:shadow-[0_8px_30px_rgb(0,0,0,0.02)]"
+              onClick={() => onSelectPrompt(prompt)}
+              className="group bg-white rounded-3xl border border-slate-200/50 hover:border-slate-300/80 overflow-hidden flex flex-col transition-apple hover:shadow-[0_8px_30px_rgb(0,0,0,0.02)] cursor-pointer"
             >
               {/* Image Preview Container */}
               <div className="relative aspect-[768/1376] bg-slate-100 overflow-hidden border-b border-slate-100">
@@ -226,13 +227,6 @@ export default function ShowcaseGrid({ prompts, onSelectPrompt, onTriggerLogin, 
                     <span className="text-slate-800 text-xs font-bold">{prompt.stars}</span>
                     <span className="text-slate-400 text-[10px] font-medium">({prompt.totalReviews})</span>
                   </div>
-
-                  <button
-                    onClick={() => onSelectPrompt(prompt)}
-                    className="px-4 py-2 bg-slate-50 hover:bg-orange-500 hover:text-white border border-slate-200/40 text-slate-700 text-xs font-semibold rounded-xl cursor-pointer transition-all duration-200"
-                  >
-                    View Details
-                  </button>
                 </div>
               </div>
             </div>

@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
       ? "\nFORCE IMMEDIATE COMPLETION. Set isComplete: true and generate the final prompt with whatever information is available now."
       : "";
 
-    const promptSystemInstruction = `You are a strict, single-purpose AI prompt customizer for "MK PROMPTS WORLD". Your sole job is to help the user customize their selected prompt template by asking exactly 4 simple questions one-by-one.
+    const promptSystemInstruction = `You are a strict, single-purpose AI prompt customizer for "MR.MKOFFICIAL". Your sole job is to help the user customize their selected prompt template by asking exactly 4 simple questions one-by-one.
 
 Selected Prompt Template to customize:
 Title: ${title || "Custom Prompt"}

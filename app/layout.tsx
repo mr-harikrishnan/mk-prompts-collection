@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import DynamicFavicon from "@/components/DynamicFavicon";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -13,8 +14,11 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "MK PROMPTS WORLD | Premium AI Art Prompts & Customizer",
-  description: "Discover, customize, and copy high-quality AI art templates from MK LOVE ART. Premium macOS/iOS style prompt collection.",
+  title: "MR.MKOFFICIAL | Premium AI Art Prompts & Customizer",
+  description: "Discover, customize, and copy high-quality AI art templates from MR.MKOFFICIAL. Premium macOS/iOS style prompt collection.",
+  icons: {
+    icon: "/logo.png",
+  },
 };
 
 export default function RootLayout({
@@ -27,7 +31,10 @@ export default function RootLayout({
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col">
+        <DynamicFavicon />
+        {children}
+      </body>
     </html>
   );
 }

@@ -121,17 +121,23 @@ export default function LandingScreen({ onEnter }: LandingScreenProps) {
 
       {/* Main typography content container */}
       <div className="relative z-10 flex flex-col items-center max-w-xl px-6 text-center select-none">
-        <span className="text-sm font-semibold tracking-[0.3em] uppercase text-orange-500 animate-pulse mb-3">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/logo.png"
+          alt="MR.MKOFFICIAL Logo"
+          className="w-20 h-20 rounded-full object-cover shadow-lg border-2 border-white/20 mb-4 animate-pulse"
+        />
+        <span className="text-sm font-semibold tracking-[0.3em] uppercase text-orange-500 mb-3">
           MK LOVE ART
         </span>
         <h1 className="text-4xl sm:text-6xl font-extrabold tracking-tight text-white mb-6">
-          MK PROMPTS WORLD
+          MR.MKOFFICIAL
         </h1>
         <p className="text-slate-400 text-lg leading-relaxed mb-10 max-w-md">
           A state-of-the-art interactive prompt repository. Customize parameters
           and compile premium AI art templates instantly.
         </p>
-
+ 
         {/* Enter Button */}
         <button
           onClick={handleEnterClick}
@@ -142,10 +148,10 @@ export default function LandingScreen({ onEnter }: LandingScreenProps) {
           <div className="absolute inset-0 bg-gradient-to-r from-orange-500 to-amber-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
         </button>
       </div>
-
+ 
       {/* Subtle Bottom Credit */}
       <div className="absolute bottom-6 text-xs text-slate-600 tracking-wider">
-        MK PROMPTS WORLD v1.0 • DESIGNED FOR VISUAL ARTISTS
+        MR.MKOFFICIAL v1.0 • DESIGNED FOR VISUAL ARTISTS
       </div>
     </div>
   );

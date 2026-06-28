@@ -337,7 +337,7 @@ export default function PromptCustomizer({
                 </div>
                 <div>
                   <h3 className="text-sm font-bold text-slate-800 leading-none">
-                    MK AI Prompt Consultant
+                    MR.MKOFFICIAL AI Consultant
                   </h3>
                   <span className="text-[10px] font-semibold text-emerald-500 flex items-center gap-1 mt-0.5 select-none">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />

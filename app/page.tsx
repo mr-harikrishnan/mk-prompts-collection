@@ -188,8 +188,24 @@ export default function Home() {
   // If not mounted yet (SSR phase), render basic loading shell to protect hydration
   if (!isMounted) {
     return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center text-slate-500 font-bold text-xs select-none">
-        Loading Prompts World...
+      <div className="min-h-screen bg-white flex flex-col items-center justify-center select-none animate-in fade-in duration-300">
+        <div className="flex flex-col items-center space-y-8">
+          {/* Large Logo */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/logo.png"
+            alt="MR.MKOFFICIAL Logo"
+            className="w-28 h-28 sm:w-32 sm:h-32 rounded-full object-cover"
+          />
+          
+          {/* Up and down bouncing dots loader */}
+          <div className="flex items-center gap-2">
+            <span className="w-2.5 h-2.5 bg-slate-800 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
+            <span className="w-2.5 h-2.5 bg-slate-800 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
+            <span className="w-2.5 h-2.5 bg-slate-800 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+            <span className="w-2.5 h-2.5 bg-slate-800 rounded-full animate-bounce" style={{ animationDelay: "450ms" }} />
+          </div>
+        </div>
       </div>
     );
   }

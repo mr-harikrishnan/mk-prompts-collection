@@ -34,9 +34,17 @@ export default function Header({
               <ArrowLeft className="w-3.5 h-3.5" />
             </button>
           )}
-          <h1 className="text-base font-extrabold text-slate-900 leading-tight tracking-wider uppercase select-none">
-            {settings.pageName}
-          </h1>
+          <div className="flex items-center gap-2">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/logo.png"
+              alt="MR.MKOFFICIAL Logo"
+              className="w-7 h-7 rounded-full object-cover shrink-0"
+            />
+            <h1 className="text-base font-extrabold text-slate-900 leading-tight tracking-wider uppercase select-none">
+              {settings.pageName === "MK PROMPTS WORLD" ? "MR.MKOFFICIAL" : settings.pageName}
+            </h1>
+          </div>
         </div>
         {showAdminMenu && (
           <button
