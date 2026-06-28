@@ -511,18 +511,6 @@ export default function Home() {
         <footer className="w-full text-slate-400 text-xs border-t border-slate-200/50 mt-auto py-6">
           <div className="max-w-7xl mx-auto px-6 flex flex-col sm:flex-row items-center justify-between gap-4">
             <span className="select-none">© {new Date().getFullYear()} {settings.pageName} • Crafted with Apple Design Principles</span>
-            <button
-              onClick={() => {
-                if (isAdminLoggedIn) {
-                  setActiveView("dashboard");
-                } else {
-                  setIsLoginOpen(true);
-                }
-              }}
-              className="hover:text-slate-700 font-bold transition-colors cursor-pointer"
-            >
-              {isAdminLoggedIn ? "Admin Controls" : "Admin Access"}
-            </button>
           </div>
         </footer>
       </div>

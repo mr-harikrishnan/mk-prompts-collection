@@ -469,25 +469,6 @@ export default function PromptCustomizer({
                       >
                         ⚡ Skip & Generate Prompt
                       </button>
-                      {messages.length > 1 && (
-                        <div className="flex items-center gap-3">
-                          <button
-                            type="button"
-                            onClick={handleRetry}
-                            disabled={isThinking}
-                            className="text-[10px] font-bold text-slate-500 hover:text-slate-700 transition-colors flex items-center gap-1 cursor-pointer disabled:opacity-50"
-                          >
-                            🔄 Retry
-                          </button>
-                          <button
-                            type="button"
-                            onClick={handleRestart}
-                            className="text-[10px] font-bold text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
-                          >
-                            Reset
-                          </button>
-                        </div>
-                      )}
                     </div>
                   )}
                 </>
